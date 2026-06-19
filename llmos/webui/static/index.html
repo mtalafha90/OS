@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LLM-OS</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- ── Top Bar ──────────────────────────────────────────────────────── -->
+<header id="topbar">
+  <div id="topbar-left">
+    <span id="activities-btn" onclick="toggleAppGrid()">Activities</span>
+    <span id="app-title">LLM-OS</span>
+  </div>
+  <div id="topbar-center">
+    <span id="clock"></span>
+  </div>
+  <div id="topbar-right">
+    <span class="topbar-icon" title="Network">&#x1F4F6;</span>
+    <span class="topbar-icon" title="Sound">&#x1F50A;</span>
+    <span id="model-badge" title="Active model">llama3.2</span>
+    <span class="topbar-icon" id="settings-btn" title="Settings" onclick="toggleSettings()">&#x2699;&#xFE0F;</span>
+  </div>
+</header>
+
+<!-- ── App Grid Overlay ─────────────────────────────────────────────── -->
+<div id="app-grid" class="hidden">
+  <div class="app-grid-inner">
+    <div class="app-icon" onclick="openApp('assistant')">
+      <div class="app-icon-img">&#x1F916;</div>
+      <div class="app-icon-label">AI Assistant</div>
+    </div>
+    <div class="app-icon" onclick="openApp('files')">
+      <div class="app-icon-img">&#x1F4C1;</div>
+      <div class="app-icon-label">Files</div>
+    </div>
+    <div class="app-icon" onclick="openApp('terminal')">
+      <div class="app-icon-img">&#x1F4BB;</div>
+      <div class="app-icon-label">Terminal</div>
+    </div>
+    <div class="app-icon" onclick="openApp('system')">
+      <div class="app-icon-img">&#x2699;&#xFE0F;</div>
+      <div class="app-icon-label">System</div>
+    </div>
+    <div class="app-icon" onclick="openApp('network')">
+      <div class="app-icon-img">&#x1F310;</div>
+      <div class="app-icon-label">Network</div>
+    </div>
+    <div class="app-icon" onclick="openApp('packages')">
+      <div class="app-icon-img">&#x1F4E6;</div>
+      <div class="app-icon-label">Software</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Desktop ───────────────────────────────────────────────────────── -->
+<main id="desktop">
+
+  <!-- Main assistant window (always visible) -->
+  <div class="window" id="win-assistant" data-app="assistant">
+    <div class="window-titlebar" onmousedown="startDrag(event, 'win-assistant')">
+      <span class="window-title">&#x1F916; LLM-OS Assistant</span>
+      <div class="window-controls">
+        <button class="wbtn minimize" onclick="minimizeWindow('win-assistant')">&#x2212;</button>
+        <button class="wbtn maximize" onclick="maximizeWindow('win-assistant')">&#x25A1;</button>
+        <button class="wbtn close" onclick="closeWindow('win-assistant')">&#x2715;</button>
+      </div>
+    </div>
+    <div class="window-body">
+      <div id="chat-messages">
+        <div class="msg system-msg">
+          <strong>LLM-OS</strong> — Natural Language Operating System<br/>
+          <span class="dim">Ask me anything. I can manage files, processes, network, and packages.</span>
+        </div>
+      </div>
+      <div id="chat-input-row">
+        <span id="prompt-label">&#x276F;</span>
+        <input id="chat-input" type="text" placeholder="Type a command in plain English…" autocomplete="off" />
+        <button id="send-btn" onclick="sendMessage()">Send</button>
+      </div>
+      <div id="quick-actions">
+        <button class="qa-btn" onclick="quickSend('show system information')">System Info</button>
+        <button class="qa-btn" onclick="quickSend('list files in home directory')">Home Files</button>
+        <button class="qa-btn" onclick="quickSend('show disk usage')">Disk Usage</button>
+        <button class="qa-btn" onclick="quickSend('list running processes')">Processes</button>
+        <button class="qa-btn" onclick="quickSend('show network interfaces')">Network</button>
+        <button class="qa-btn" onclick="clearHistory()">Clear Chat</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings panel -->
+  <div class="window hidden" id="win-settings" data-app="settings" style="left:200px;top:150px;width:400px;height:300px">
+    <div class="window-titlebar" onmousedown="startDrag(event, 'win-settings')">
+      <span class="window-title">&#x2699;&#xFE0F; Settings</span>
+      <div class="window-controls">
+        <button class="wbtn close" onclick="closeWindow('win-settings')">&#x2715;</button>
+      </div>
+    </div>
+    <div class="window-body" style="padding:16px">
+      <label class="setting-label">Model</label>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <select id="model-select" style="flex:1"></select>
+        <button onclick="switchModel()">Apply</button>
+      </div>
+      <label class="setting-label">Ollama URL</label>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input id="ollama-url-input" type="text" style="flex:1" />
+        <button onclick="applyOllamaUrl()">Apply</button>
+      </div>
+      <div id="settings-status" class="dim"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── Dock ──────────────────────────────────────────────────────────── -->
+<div id="dock">
+  <div class="dock-item active" title="AI Assistant" onclick="showWindow('win-assistant')">&#x1F916;</div>
+  <div class="dock-item" title="Files" onclick="quickSend('list files in current directory')">&#x1F4C1;</div>
+  <div class="dock-item" title="Processes" onclick="quickSend('show running processes')">&#x1F4CA;</div>
+  <div class="dock-item" title="Network" onclick="quickSend('show network interfaces and connectivity')">&#x1F310;</div>
+  <div class="dock-item" title="Packages" onclick="quickSend('list installed packages')">&#x1F4E6;</div>
+  <div class="dock-separator"></div>
+  <div class="dock-item" title="Settings" onclick="toggleSettings()">&#x2699;&#xFE0F;</div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
