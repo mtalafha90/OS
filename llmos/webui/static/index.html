@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LLM-OS</title>
   <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -35,6 +36,10 @@
     <div class="app-icon" onclick="openApp('assistant')">
       <div class="app-icon-img">&#x1F916;</div>
       <div class="app-icon-label">AI Assistant</div>
+    </div>
+    <div class="app-icon" onclick="openApp('dashboard')">
+      <div class="app-icon-img">&#x1F4CA;</div>
+      <div class="app-icon-label">Dashboard</div>
     </div>
     <div class="app-icon" onclick="openApp('files')">
       <div class="app-icon-img">&#x1F4C1;</div>
@@ -82,6 +87,7 @@
       <div id="chat-input-row">
         <span id="prompt-label">&#x276F;</span>
         <input id="chat-input" type="text" placeholder="Type a command in plain English…" autocomplete="off" />
+        <button id="voice-btn" class="voice-btn" onclick="toggleVoice()" title="Voice input">&#x1F3A4;</button>
         <button id="send-btn" onclick="sendMessage()">Send</button>
       </div>
       <div id="quick-actions">
@@ -92,6 +98,118 @@
         <button class="qa-btn" onclick="quickSend('start JupyterLab on port 8888')">Jupyter</button>
         <button class="qa-btn" onclick="quickSend('list running processes and GPU processes')">Processes</button>
         <button class="qa-btn" onclick="clearHistory()">Clear Chat</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard window -->
+  <div class="window hidden" id="win-dashboard" data-app="dashboard" style="left:880px;top:30px;width:720px;height:580px">
+    <div class="window-titlebar" onmousedown="startDrag(event, 'win-dashboard')">
+      <span class="window-title">&#x1F4CA; Dashboard</span>
+      <div class="window-controls">
+        <button class="wbtn minimize" onclick="minimizeWindow('win-dashboard')">&#x2212;</button>
+        <button class="wbtn maximize" onclick="maximizeWindow('win-dashboard')">&#x25A1;</button>
+        <button class="wbtn close" onclick="closeWindow('win-dashboard')">&#x2715;</button>
+      </div>
+    </div>
+    <div class="window-body">
+      <!-- Tab bar -->
+      <div class="tab-bar">
+        <button class="tab active" onclick="switchTab('dashboard', 'monitor')">Monitor</button>
+        <button class="tab" onclick="switchTab('dashboard', 'jobs')">Jobs</button>
+        <button class="tab" onclick="switchTab('dashboard', 'history')">History</button>
+        <button class="tab" onclick="switchTab('dashboard', 'plots')">Plots</button>
+      </div>
+
+      <!-- Monitor tab -->
+      <div class="tab-content active" id="tab-dashboard-monitor">
+        <div class="metrics-row">
+          <div class="metric-card" id="mc-cpu">
+            <div class="metric-value" id="mv-cpu">--</div>
+            <div class="metric-label">CPU</div>
+          </div>
+          <div class="metric-card" id="mc-ram">
+            <div class="metric-value" id="mv-ram">--</div>
+            <div class="metric-label">RAM</div>
+          </div>
+          <div class="metric-card" id="mc-disk">
+            <div class="metric-value" id="mv-disk">--</div>
+            <div class="metric-label">Disk</div>
+          </div>
+          <div class="metric-card" id="mc-gpu">
+            <div class="metric-value" id="mv-gpu">--</div>
+            <div class="metric-label">GPU</div>
+          </div>
+        </div>
+        <div class="charts-grid">
+          <div class="chart-container">
+            <div class="chart-title">CPU %</div>
+            <canvas id="chart-cpu"></canvas>
+          </div>
+          <div class="chart-container">
+            <div class="chart-title">RAM %</div>
+            <canvas id="chart-ram"></canvas>
+          </div>
+          <div class="chart-container">
+            <div class="chart-title">Disk %</div>
+            <canvas id="chart-disk"></canvas>
+          </div>
+          <div class="chart-container">
+            <div class="chart-title">GPU Util %</div>
+            <canvas id="chart-gpu"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Jobs tab -->
+      <div class="tab-content" id="tab-dashboard-jobs">
+        <div class="tab-toolbar">
+          <span class="tab-section-title">Job Queue</span>
+          <button class="small-btn" onclick="pollJobs()">Refresh</button>
+        </div>
+        <div class="table-scroll">
+          <table class="job-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>Name</th><th>Status</th><th>Command</th><th>GPU</th><th>MPI</th><th>Priority</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="jobs-tbody">
+              <tr><td colspan="8" class="table-empty">No jobs in queue</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- History tab -->
+      <div class="tab-content" id="tab-dashboard-history">
+        <div class="tab-toolbar">
+          <span class="tab-section-title">Simulation History</span>
+          <button class="small-btn" onclick="pollHistory()">Refresh</button>
+        </div>
+        <div class="table-scroll">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th></th><th>Name</th><th>Status</th><th>Started</th><th>Duration</th><th>Exit Code</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody">
+              <tr><td colspan="6" class="table-empty">No simulation history</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Plots tab -->
+      <div class="tab-content" id="tab-dashboard-plots">
+        <div class="tab-toolbar">
+          <span class="tab-section-title">Generated Plots</span>
+          <button class="small-btn" onclick="pollPlots()">Refresh</button>
+        </div>
+        <div class="plot-gallery" id="plot-gallery">
+          <div class="plot-empty">No plots found in ~/plots/</div>
+        </div>
       </div>
     </div>
   </div>
@@ -124,12 +242,56 @@
 <!-- ── Dock ──────────────────────────────────────────────────────────── -->
 <div id="dock">
   <div class="dock-item active" title="AI Assistant" onclick="showWindow('win-assistant')">&#x1F916;</div>
+  <div class="dock-item" title="Dashboard" onclick="openDashboard()">&#x1F4CA;</div>
   <div class="dock-item" title="Files" onclick="quickSend('list files in current directory')">&#x1F4C1;</div>
-  <div class="dock-item" title="Processes" onclick="quickSend('show running processes')">&#x1F4CA;</div>
+  <div class="dock-item" title="Processes" onclick="quickSend('show running processes')">&#x1F4CB;</div>
   <div class="dock-item" title="Network" onclick="quickSend('show network interfaces and connectivity')">&#x1F310;</div>
   <div class="dock-item" title="Packages" onclick="quickSend('list installed packages')">&#x1F4E6;</div>
   <div class="dock-separator"></div>
+  <div class="dock-item" title="Submit Job" onclick="openJobDialog()">&#x2795;</div>
   <div class="dock-item" title="Settings" onclick="toggleSettings()">&#x2699;&#xFE0F;</div>
+</div>
+
+<!-- ── Submit Job Dialog ─────────────────────────────────────────────── -->
+<div id="job-dialog" class="job-dialog hidden">
+  <div class="job-dialog-box">
+    <div class="job-dialog-header">
+      <span>Submit Job</span>
+      <button class="job-dialog-close" onclick="closeJobDialog()">&#x2715;</button>
+    </div>
+    <div class="job-dialog-body">
+      <label class="setting-label">Job Name</label>
+      <input type="text" id="jd-name" placeholder="my-simulation" />
+
+      <label class="setting-label">Command</label>
+      <input type="text" id="jd-command" placeholder="python run.py --steps 1000" />
+
+      <label class="setting-label">Working Directory</label>
+      <input type="text" id="jd-workdir" placeholder="/home/user/sim" />
+
+      <label class="setting-label">GPU IDs (comma-separated)</label>
+      <input type="text" id="jd-gpus" placeholder="0,1" />
+
+      <label class="setting-label">MPI Ranks</label>
+      <input type="text" id="jd-mpi" placeholder="1" />
+
+      <label class="setting-label">Priority (1-10)</label>
+      <input type="text" id="jd-priority" placeholder="5" />
+    </div>
+    <div class="job-dialog-footer">
+      <button class="secondary-btn" onclick="closeJobDialog()">Cancel</button>
+      <button onclick="submitJobFromDialog()">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Plot Lightbox ──────────────────────────────────────────────────── -->
+<div id="plot-lightbox" class="plot-lightbox hidden" onclick="closeLightbox()">
+  <div class="lightbox-inner" onclick="event.stopPropagation()">
+    <button class="lightbox-close" onclick="closeLightbox()">&#x2715;</button>
+    <img id="lightbox-img" src="" alt="Plot" />
+    <div id="lightbox-caption" class="lightbox-caption"></div>
+  </div>
 </div>
 
 <script src="/static/app.js"></script>
