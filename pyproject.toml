@@ -33,12 +33,15 @@ web = [
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
     "websockets>=12.0",
+    "python-multipart>=0.0.9",
 ]
 sci = [
     "numpy>=1.26",
     "scipy>=1.13",
     "pandas>=2.2",
     "matplotlib>=3.9",
+    "plotly>=5.22",
+    "kaleido>=0.2",
     "scikit-learn>=1.5",
     "h5py>=3.11",
     "netCDF4>=1.7",
@@ -51,6 +54,26 @@ sci = [
 gpu = [
     "torch>=2.3",
     "cupy-cuda12x>=13.0",
+]
+memory = [
+    "chromadb>=0.5",
+    "sentence-transformers>=3.0",
+]
+voice = [
+    "openai-whisper>=20231117",
+    "sounddevice>=0.4.6",
+    "soundfile>=0.12",
+    "pyttsx3>=2.90",
+]
+remote = [
+    "paramiko>=3.4",
+]
+reports = [
+    "reportlab>=4.2",
+    "weasyprint>=62.0",
+]
+all = [
+    "llmos[web,sci,gpu,memory,voice,remote,reports]",
 ]
 dev = [
     "pytest>=8.0",
