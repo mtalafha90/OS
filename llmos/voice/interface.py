@@ -3,23 +3,22 @@
 Provides Speech-to-Text via openai-whisper and Text-to-Speech via pyttsx3 / espeak.
 All capabilities degrade gracefully when optional dependencies are missing.
 """
+
 from __future__ import annotations
 
-import io
 import os
-import queue
 import shutil
 import subprocess
 import tempfile
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
-
 
 # ---------------------------------------------------------------------------
 # Availability probes (evaluated once at import time)
 # ---------------------------------------------------------------------------
+
 
 def _probe(module: str) -> bool:
     try:
@@ -40,6 +39,7 @@ _HAS_ESPEAK = shutil.which("espeak") is not None or shutil.which("espeak-ng") is
 # VoiceInterface
 # ---------------------------------------------------------------------------
 
+
 class VoiceInterface:
     """Unified voice interface supporting STT (Whisper) and TTS (pyttsx3/espeak).
 
@@ -57,9 +57,9 @@ class VoiceInterface:
                         ("tiny", "base", "small", "medium", "large").
         """
         self._model_size = model_size
-        self._whisper_model = None           # lazy
-        self._pyttsx3_engine = None          # lazy
-        self._tts_thread: Optional[threading.Thread] = None
+        self._whisper_model = None  # lazy
+        self._pyttsx3_engine = None  # lazy
+        self._tts_thread: threading.Thread | None = None
         self._tts_stop = threading.Event()
         self._wake_stop = threading.Event()
 
@@ -72,10 +72,10 @@ class VoiceInterface:
         if self._whisper_model is None:
             if not _HAS_WHISPER:
                 raise RuntimeError(
-                    "openai-whisper is not installed.\n"
-                    "Install with: pip install openai-whisper"
+                    "openai-whisper is not installed.\nInstall with: pip install openai-whisper"
                 )
             import whisper  # type: ignore
+
             self._whisper_model = whisper.load_model(self._model_size)
         return self._whisper_model
 
@@ -86,13 +86,14 @@ class VoiceInterface:
         if self._pyttsx3_engine is None:
             try:
                 import pyttsx3  # type: ignore
+
                 self._pyttsx3_engine = pyttsx3.init()
             except Exception:
                 return None
         return self._pyttsx3_engine
 
     @staticmethod
-    def _espeak_binary() -> Optional[str]:
+    def _espeak_binary() -> str | None:
         return shutil.which("espeak-ng") or shutil.which("espeak")
 
     # -----------------------------------------------------------------------
@@ -121,7 +122,7 @@ class VoiceInterface:
         except Exception as exc:
             return f"Transcription error: {exc}"
 
-    def listen(self, duration: float = 5.0, device: Optional[int] = None) -> str:
+    def listen(self, duration: float = 5.0, device: int | None = None) -> str:
         """Record audio from the microphone and transcribe it.
 
         Args:
@@ -132,20 +133,11 @@ class VoiceInterface:
             Transcribed text, or an error/install message.
         """
         if not _HAS_SOUNDDEVICE:
-            return (
-                "sounddevice is not installed.\n"
-                "Install with: pip install sounddevice"
-            )
+            return "sounddevice is not installed.\nInstall with: pip install sounddevice"
         if not _HAS_NUMPY:
-            return (
-                "numpy is not installed.\n"
-                "Install with: pip install numpy"
-            )
+            return "numpy is not installed.\nInstall with: pip install numpy"
         if not _HAS_WHISPER:
-            return (
-                "openai-whisper is not installed.\n"
-                "Install with: pip install openai-whisper"
-            )
+            return "openai-whisper is not installed.\nInstall with: pip install openai-whisper"
 
         try:
             import numpy as np  # type: ignore
@@ -165,7 +157,6 @@ class VoiceInterface:
 
             # Write to a temporary WAV file for Whisper
             import wave
-            import struct
 
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 tmp_path = tmp.name
@@ -221,12 +212,13 @@ class VoiceInterface:
         self._wake_stop.clear()
 
         def _worker() -> None:
-            import numpy as np  # type: ignore
-            import sounddevice as sd  # type: ignore
             import wave
 
+            import numpy as np  # type: ignore
+            import sounddevice as sd  # type: ignore
+
             sample_rate = 16_000
-            chunk_duration = 2.0          # seconds per chunk
+            chunk_duration = 2.0  # seconds per chunk
             frames_per_chunk = int(chunk_duration * sample_rate)
             lw = wake_word.lower()
 
@@ -285,7 +277,7 @@ class VoiceInterface:
     def speak(
         self,
         text: str,
-        voice: Optional[str] = None,
+        voice: str | None = None,
         rate: int = 150,
     ) -> None:
         """Convert text to speech.
@@ -344,9 +336,7 @@ class VoiceInterface:
                 except Exception:
                     pass
 
-            self._tts_thread = threading.Thread(
-                target=_run_espeak, daemon=True, name="llmos-tts"
-            )
+            self._tts_thread = threading.Thread(target=_run_espeak, daemon=True, name="llmos-tts")
             self._tts_thread.start()
             return
 

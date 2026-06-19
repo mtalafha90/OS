@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 """SSH / SLURM remote compute executor backed by paramiko."""
+
+from __future__ import annotations
 
 import re
 import time
 from pathlib import Path
-from typing import Optional
 
 try:
     import paramiko  # type: ignore
@@ -34,18 +33,16 @@ class RemoteExecutor:
         self,
         host: str,
         username: str,
-        key_file: Optional[str] = None,
+        key_file: str | None = None,
         port: int = 22,
     ) -> None:
         if not _PARAMIKO_AVAILABLE:
-            raise ImportError(
-                "paramiko is required for remote compute: pip install paramiko"
-            )
+            raise ImportError("paramiko is required for remote compute: pip install paramiko")
         self.host = host
         self.username = username
         self.key_file = key_file
         self.port = port
-        self._client: Optional["paramiko.SSHClient"] = None
+        self._client: paramiko.SSHClient | None = None
 
     # ------------------------------------------------------------------
     # Connection management
@@ -74,13 +71,13 @@ class RemoteExecutor:
             self._client.close()
             self._client = None
 
-    def _ensure_connected(self) -> "paramiko.SSHClient":
+    def _ensure_connected(self) -> paramiko.SSHClient:
         if self._client is None:
             self.connect()
         assert self._client is not None
         return self._client
 
-    def __enter__(self) -> "RemoteExecutor":
+    def __enter__(self) -> RemoteExecutor:
         self.connect()
         return self
 
@@ -166,12 +163,11 @@ class RemoteExecutor:
                 header_lines.append(f"#SBATCH --gres={gres}")
             full_script = "\n".join(header_lines) + "\n" + script_path
             remote_script = f"/tmp/llmos_job_{int(time.time())}.sh"
-            self.run_command(
-                f"cat > {remote_script} << 'LLMOS_EOF'\n{full_script}\nLLMOS_EOF"
-            )
+            self.run_command(f"cat > {remote_script} << 'LLMOS_EOF'\n{full_script}\nLLMOS_EOF")
         else:
             # Upload the local script file
             import os
+
             if os.path.isfile(script_path):
                 remote_script = f"/tmp/{Path(script_path).name}"
                 self.upload_file(script_path, remote_script)

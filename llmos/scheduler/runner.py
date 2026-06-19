@@ -1,11 +1,11 @@
 """Background job runner that watches the queue and executes jobs."""
+
 from __future__ import annotations
 
 import logging
 import os
 import subprocess
 import threading
-import time
 from pathlib import Path
 from typing import Any
 
@@ -61,7 +61,11 @@ class JobRunner:
             daemon=True,
         )
         self._thread.start()
-        logger.info("JobRunner started (max_concurrent=%d, poll=%.1fs)", self._max_concurrent, self._poll_interval)
+        logger.info(
+            "JobRunner started (max_concurrent=%d, poll=%.1fs)",
+            self._max_concurrent,
+            self._poll_interval,
+        )
 
     def stop(self, timeout: float = 10.0) -> None:
         """Signal the runner to stop and wait for the thread to exit."""
@@ -103,7 +107,9 @@ class JobRunner:
                 self._queue.mark_done(job_id, success=success)
                 logger.info(
                     "Job %s finished (returncode=%d, success=%s)",
-                    job_id, returncode, success,
+                    job_id,
+                    returncode,
+                    success,
                 )
 
     def _start_pending(self) -> None:
@@ -165,5 +171,9 @@ class JobRunner:
 
         logger.info(
             "Launched job %s (pid=%d, gpu_ids=%s, mpi_ranks=%d): %s",
-            job_id, proc.pid, gpu_ids, mpi_ranks, command[:120],
+            job_id,
+            proc.pid,
+            gpu_ids,
+            mpi_ranks,
+            command[:120],
         )

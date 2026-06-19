@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import httpx
 
@@ -86,7 +87,7 @@ class OllamaClient:
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> "OllamaClient":
+    def __enter__(self) -> OllamaClient:
         return self
 
     def __exit__(self, *_: Any) -> None:

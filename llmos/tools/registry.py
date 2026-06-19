@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 _REGISTRY: dict[str, dict] = {}
 
@@ -12,6 +13,7 @@ def tool(
     required: list[str] | None = None,
 ) -> Callable:
     """Decorator that registers a function as an LLM-callable tool."""
+
     def decorator(fn: Callable) -> Callable:
         _REGISTRY[name] = {
             "schema": {
@@ -29,6 +31,7 @@ def tool(
             "fn": fn,
         }
         return fn
+
     return decorator
 
 

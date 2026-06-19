@@ -105,6 +105,7 @@ class Agent:
                 # registered OS tools without importing them explicitly.
                 try:
                     from llmos.tools.registry import dispatch_tool
+
                     result = dispatch_tool(name, args)
                 except Exception as exc:
                     result = f"Error executing {name}: {exc}"

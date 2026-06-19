@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import fnmatch
 import os
 import shutil
 import stat
-import fnmatch
 from datetime import datetime
 from pathlib import Path
 
@@ -27,7 +27,10 @@ def _fmt_mode(mode: int) -> str:
     description="List files and directories at a given path. Returns name, size, permissions, and modification time.",
     properties={
         "path": {"type": "string", "description": "Directory to list (default: current directory)"},
-        "show_hidden": {"type": "boolean", "description": "Include hidden files (starting with '.')"},
+        "show_hidden": {
+            "type": "boolean",
+            "description": "Include hidden files (starting with '.')",
+        },
     },
     required=[],
 )
@@ -61,8 +64,14 @@ def list_directory(path: str = ".", show_hidden: bool = False) -> str:
     description="Read the contents of a text file. Optionally specify line range.",
     properties={
         "path": {"type": "string", "description": "File path to read"},
-        "start_line": {"type": "integer", "description": "First line to read (1-indexed, default 1)"},
-        "end_line": {"type": "integer", "description": "Last line to read (inclusive, default: all)"},
+        "start_line": {
+            "type": "integer",
+            "description": "First line to read (1-indexed, default 1)",
+        },
+        "end_line": {
+            "type": "integer",
+            "description": "Last line to read (inclusive, default: all)",
+        },
     },
     required=["path"],
 )
@@ -78,8 +87,8 @@ def read_file(path: str, start_line: int = 1, end_line: int | None = None) -> st
         s = max(0, start_line - 1)
         e = end_line if end_line else total
         selected = lines[s:e]
-        header = f"=== {path} ({total} lines total, showing {s+1}-{min(e,total)}) ===\n"
-        return header + "\n".join(f"{s+i+1:4}: {l}" for i, l in enumerate(selected))
+        header = f"=== {path} ({total} lines total, showing {s + 1}-{min(e, total)}) ===\n"
+        return header + "\n".join(f"{s + i + 1:4}: {ln}" for i, ln in enumerate(selected))
     except PermissionError:
         return f"Error: permission denied reading '{path}'"
 
@@ -90,14 +99,16 @@ def read_file(path: str, start_line: int = 1, end_line: int | None = None) -> st
     properties={
         "path": {"type": "string", "description": "Destination file path"},
         "content": {"type": "string", "description": "Text content to write"},
-        "append": {"type": "boolean", "description": "Append instead of overwrite (default: false)"},
+        "append": {
+            "type": "boolean",
+            "description": "Append instead of overwrite (default: false)",
+        },
     },
     required=["path", "content"],
 )
 def write_file(path: str, content: str, append: bool = False) -> str:
     p = Path(path).expanduser()
     p.parent.mkdir(parents=True, exist_ok=True)
-    mode = "a" if append else "w"
     p.write_text(content) if not append else open(p, "a").write(content)
     action = "Appended to" if append else "Wrote"
     return f"{action} {p} ({len(content)} bytes)"
@@ -122,7 +133,10 @@ def create_directory(path: str) -> str:
     description="Delete a file or directory.",
     properties={
         "path": {"type": "string", "description": "Path to delete"},
-        "recursive": {"type": "boolean", "description": "Recursively delete directories (default: false)"},
+        "recursive": {
+            "type": "boolean",
+            "description": "Recursively delete directories (default: false)",
+        },
     },
     required=["path"],
 )
@@ -213,9 +227,9 @@ def search_files(
                     if content_pattern not in text:
                         continue
                     matches = [
-                        f"  line {i+1}: {l.strip()}"
-                        for i, l in enumerate(text.splitlines())
-                        if content_pattern in l
+                        f"  line {i + 1}: {ln.strip()}"
+                        for i, ln in enumerate(text.splitlines())
+                        if content_pattern in ln
                     ]
                     results.append(f"{fpath}\n" + "\n".join(matches[:5]))
                 except Exception:
@@ -247,8 +261,5 @@ def get_disk_usage(path: str = "/") -> str:
     free = _fmt_size(usage.free)
     pct = usage.used / usage.total * 100
     return (
-        f"Disk usage for {path}:\n"
-        f"  Total: {total}\n"
-        f"  Used:  {used} ({pct:.1f}%)\n"
-        f"  Free:  {free}"
+        f"Disk usage for {path}:\n  Total: {total}\n  Used:  {used} ({pct:.1f}%)\n  Free:  {free}"
     )

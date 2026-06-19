@@ -1,10 +1,9 @@
-from __future__ import annotations
-
 """Docker, Podman, and Singularity/Apptainer container management."""
+
+from __future__ import annotations
 
 import shutil
 import subprocess
-from typing import Optional
 
 
 class ContainerError(Exception):
@@ -14,7 +13,7 @@ class ContainerError(Exception):
 def _run(
     cmd: list[str],
     timeout: int = 120,
-    input_text: Optional[str] = None,
+    input_text: str | None = None,
 ) -> tuple[str, str, int]:
     """Run *cmd*, return (stdout, stderr, returncode)."""
     result = subprocess.run(
@@ -40,9 +39,7 @@ def _detect_runtimes() -> dict[str, str]:
         path = shutil.which(exe)
         if path:
             # Verify it actually responds
-            rc = subprocess.run(
-                [exe, "--version"], capture_output=True, timeout=5
-            ).returncode
+            rc = subprocess.run([exe, "--version"], capture_output=True, timeout=5).returncode
             if rc == 0:
                 # Normalise apptainer → singularity for API purposes
                 key = "singularity" if name == "apptainer" else name
@@ -67,8 +64,7 @@ class ContainerManager:
             available = list(self._runtimes.keys())
             if not available:
                 raise ContainerError(
-                    "No container runtime found. "
-                    "Install docker, podman, singularity, or apptainer."
+                    "No container runtime found. Install docker, podman, singularity, or apptainer."
                 )
             # Fall back to first available
             runtime = available[0]
@@ -103,6 +99,7 @@ class ContainerManager:
             # list .sif files in ~/.singularity/cache or CWD.
             import glob
             import os
+
             sif_dirs = [
                 os.path.expanduser("~/.singularity/cache"),
                 os.path.expanduser("~/.apptainer/cache"),
@@ -173,7 +170,7 @@ class ContainerManager:
         self,
         image: str,
         command: str = "",
-        volumes: Optional[dict[str, str]] = None,
+        volumes: dict[str, str] | None = None,
         gpu: bool = False,
         runtime: str = "",
         name: str = "",
@@ -219,7 +216,7 @@ class ContainerManager:
         self,
         image: str,
         command: str = "",
-        volumes: Optional[dict[str, str]] = None,
+        volumes: dict[str, str] | None = None,
         gpu: bool = False,
         runtime: str = "",
         name: str = "",
@@ -284,7 +281,12 @@ class ContainerManager:
                 parts = line.split()
                 if parts:
                     containers.append(
-                        {"id": parts[0], "name": parts[0], "image": parts[1] if len(parts) > 1 else "", "status": "running"}
+                        {
+                            "id": parts[0],
+                            "name": parts[0],
+                            "image": parts[1] if len(parts) > 1 else "",
+                            "status": "running",
+                        }
                     )
             return containers
 

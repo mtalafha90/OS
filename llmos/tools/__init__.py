@@ -1,5 +1,5 @@
-from .registry import get_tool_schemas, dispatch_tool
-from . import filesystem, process, network, packages, gpu, scientific
+from . import filesystem, gpu, network, packages, process, scientific  # noqa: F401
+from .registry import dispatch_tool, get_tool_schemas
 
 # Optional feature modules — loaded only if their deps are present
 _OPTIONAL_TOOLS = [
@@ -22,4 +22,3 @@ for _mod in _OPTIONAL_TOOLS:
         pass  # silently skip if deps missing
 
 __all__ = ["get_tool_schemas", "dispatch_tool"]
-

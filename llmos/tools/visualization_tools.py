@@ -4,12 +4,11 @@ All plots use a dark theme matching the LLM-OS aesthetic.
 Plots are saved to ~/plots/ by default and the tool returns both the file
 path and a base64-encoded PNG thumbnail.
 """
+
 from __future__ import annotations
 
 import base64
 import io
-import os
-import tempfile
 import textwrap
 import traceback
 from pathlib import Path
@@ -67,6 +66,7 @@ def _result(path: str, b64: str) -> str:
 def _load_data(data_file: str):
     """Load a CSV or HDF5 file into a pandas DataFrame."""
     import pandas as pd  # type: ignore
+
     p = Path(data_file).expanduser()
     if not p.exists():
         raise FileNotFoundError(f"Data file not found: {data_file}")
@@ -78,19 +78,19 @@ def _load_data(data_file: str):
 def _require_matplotlib():
     try:
         import matplotlib  # type: ignore
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt  # type: ignore
+
         return plt
     except ImportError:
-        raise RuntimeError(
-            "matplotlib is not installed.\n"
-            "Install with: pip install matplotlib"
-        )
+        raise RuntimeError("matplotlib is not installed.\nInstall with: pip install matplotlib")
 
 
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
+
 
 @tool(
     name="render_plot",
@@ -115,14 +115,16 @@ def _require_matplotlib():
     required=["python_code"],
 )
 def render_plot(python_code: str, output_path: str | None = None) -> str:
-    plt = _require_matplotlib()
+    _require_matplotlib()
     import matplotlib  # type: ignore
+
     matplotlib.use("Agg")
 
     plots_dir = _ensure_plots_dir()
 
     if output_path is None:
         import time
+
         ts = int(time.time())
         output_path = str(plots_dir / f"render_{ts}.png")
     else:
@@ -215,6 +217,7 @@ def plot_timeseries(
 ) -> str:
     plt = _require_matplotlib()
     import matplotlib  # type: ignore
+
     matplotlib.use("Agg")
 
     try:
@@ -225,6 +228,7 @@ def plot_timeseries(
     plots_dir = _ensure_plots_dir()
     if output_path is None:
         import time
+
         ts = int(time.time())
         output_path = str(plots_dir / f"timeseries_{ts}.png")
     else:
@@ -240,7 +244,8 @@ def plot_timeseries(
         if col not in df.columns:
             continue
         ax.plot(
-            df[x_column], df[col],
+            df[x_column],
+            df[col],
             label=col,
             color=COLORS[i % len(COLORS)],
             linewidth=1.5,
@@ -256,9 +261,11 @@ def plot_timeseries(
     fig.savefig(output_path, bbox_inches="tight", dpi=96, facecolor="#0d1117")
     plt.close(fig)
 
-    b64 = _fig_to_b64(plt.figure()) if False else base64.b64encode(
-        Path(output_path).read_bytes()
-    ).decode()
+    b64 = (
+        _fig_to_b64(plt.figure())
+        if False
+        else base64.b64encode(Path(output_path).read_bytes()).decode()
+    )
 
     return _result(output_path, b64)
 
@@ -292,6 +299,7 @@ def plot_heatmap(
 ) -> str:
     plt = _require_matplotlib()
     import matplotlib  # type: ignore
+
     matplotlib.use("Agg")
 
     try:
@@ -302,6 +310,7 @@ def plot_heatmap(
     plots_dir = _ensure_plots_dir()
     if output_path is None:
         import time
+
         ts = int(time.time())
         output_path = str(plots_dir / f"heatmap_{ts}.png")
     else:
@@ -378,6 +387,7 @@ def plot_histogram(
 ) -> str:
     plt = _require_matplotlib()
     import matplotlib  # type: ignore
+
     matplotlib.use("Agg")
 
     try:
@@ -391,6 +401,7 @@ def plot_histogram(
     plots_dir = _ensure_plots_dir()
     if output_path is None:
         import time
+
         ts = int(time.time())
         output_path = str(plots_dir / f"histogram_{ts}.png")
     else:
@@ -468,6 +479,7 @@ def plot_scatter_3d(
 ) -> str:
     plt = _require_matplotlib()
     import matplotlib  # type: ignore
+
     matplotlib.use("Agg")
     from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 — registers 3d projection
 
@@ -483,6 +495,7 @@ def plot_scatter_3d(
     plots_dir = _ensure_plots_dir()
     if output_path is None:
         import time
+
         ts = int(time.time())
         output_path = str(plots_dir / f"scatter3d_{ts}.png")
     else:
@@ -495,20 +508,23 @@ def plot_scatter_3d(
 
     # Colour mapping
     if color_column and color_column in df.columns:
-        import numpy as np  # type: ignore
         c_values = df[color_column].astype(float)
         c_norm = (c_values - c_values.min()) / (c_values.max() - c_values.min() + 1e-12)
         colors = plt.cm.plasma(c_norm.values)  # type: ignore[attr-defined]
-        scatter = ax.scatter(
-            df[x], df[y], df[z],
+        ax.scatter(
+            df[x],
+            df[y],
+            df[z],
             c=colors,
             s=20,
             alpha=0.8,
             depthshade=True,
         )
     else:
-        scatter = ax.scatter(
-            df[x], df[y], df[z],
+        ax.scatter(
+            df[x],
+            df[y],
+            df[z],
             color="#58a6ff",
             s=20,
             alpha=0.8,

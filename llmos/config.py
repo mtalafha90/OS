@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 try:
     import yaml
+
     _YAML_AVAILABLE = True
 except ImportError:
     _YAML_AVAILABLE = False
@@ -50,7 +51,7 @@ class Config:
     request_timeout: float = 120.0
 
     @classmethod
-    def load(cls, path: str | None = None) -> "Config":
+    def load(cls, path: str | None = None) -> Config:
         if path is None:
             path = os.path.expanduser("~/.config/llmos/config.yaml")
 
@@ -68,10 +69,14 @@ class Config:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         if _YAML_AVAILABLE:
             import yaml
+
             with open(path, "w") as f:
                 yaml.safe_dump(
-                    {k: getattr(self, k) for k in self.__dataclass_fields__
-                     if k != "system_prompt"},
+                    {
+                        k: getattr(self, k)
+                        for k in self.__dataclass_fields__
+                        if k != "system_prompt"
+                    },
                     f,
                     default_flow_style=False,
                 )

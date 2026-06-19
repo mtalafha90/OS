@@ -1,4 +1,5 @@
 """LLM-callable tool wrappers for the persistent memory store."""
+
 from __future__ import annotations
 
 import json
@@ -9,13 +10,14 @@ from .registry import tool
 if TYPE_CHECKING:
     from llmos.memory import MemoryStore
 
-_store: "MemoryStore | None" = None
+_store: MemoryStore | None = None
 
 
-def _get_store() -> "MemoryStore":
+def _get_store() -> MemoryStore:
     global _store
     if _store is None:
         from llmos.memory import MemoryStore
+
         _store = MemoryStore()
     return _store
 
@@ -42,7 +44,7 @@ def _get_store() -> "MemoryStore":
         },
         "metadata": {
             "type": "object",
-            "description": "Optional metadata key-value pairs (e.g. {\"source\": \"gpt4\", \"run_id\": \"...\"})",
+            "description": 'Optional metadata key-value pairs (e.g. {"source": "gpt4", "run_id": "..."})',
         },
     },
     required=["content"],

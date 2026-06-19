@@ -1,8 +1,8 @@
 """LLM-callable tools for report generation."""
+
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +17,7 @@ def _default_output_dir() -> Path:
 
 def _get_generator():
     from llmos.reports import ReportGenerator
+
     return ReportGenerator()
 
 
@@ -186,11 +187,7 @@ def list_reports(directory: str = "~/reports", limit: int = 50) -> str:
         return f"Reports directory '{reports_dir}' does not exist yet."
 
     exts = {".html", ".pdf"}
-    files = [
-        f
-        for f in reports_dir.iterdir()
-        if f.is_file() and f.suffix.lower() in exts
-    ]
+    files = [f for f in reports_dir.iterdir() if f.is_file() and f.suffix.lower() in exts]
     files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
     files = files[:limit]
 
@@ -200,9 +197,8 @@ def list_reports(directory: str = "~/reports", limit: int = 50) -> str:
     lines = [f"Reports in {reports_dir} ({len(files)} files):"]
     for f in files:
         import datetime
+
         mtime = datetime.datetime.fromtimestamp(f.stat().st_mtime)
         size_kb = f.stat().st_size / 1024
-        lines.append(
-            f"  {f.name:<50s}  {size_kb:7.1f} KB  {mtime.strftime('%Y-%m-%d %H:%M')}"
-        )
+        lines.append(f"  {f.name:<50s}  {size_kb:7.1f} KB  {mtime.strftime('%Y-%m-%d %H:%M')}")
     return "\n".join(lines)

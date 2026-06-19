@@ -84,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
         config.show_tool_calls = False
 
     from rich.console import Console
+
     console = Console()
 
     if args.web:
@@ -106,8 +107,9 @@ def main(argv: list[str] | None = None) -> int:
             "[dim]Open this URL in your browser. Ctrl+C to stop.[/]"
         )
         try:
-            import webbrowser
             import threading
+            import webbrowser
+
             threading.Timer(1.2, lambda: webbrowser.open(url)).start()
         except Exception:
             pass

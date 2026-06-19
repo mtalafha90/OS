@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """LLM-callable tools for multi-agent orchestration."""
+
+from __future__ import annotations
 
 import json
 from typing import Any
@@ -10,9 +10,9 @@ from .registry import tool
 
 def _get_coordinator() -> Any:
     """Lazily create a coordinator using the process-level config and Ollama client."""
+    from llmos.agents.coordinator import AgentCoordinator
     from llmos.config import Config
     from llmos.ollama_client import OllamaClient
-    from llmos.agents.coordinator import AgentCoordinator
 
     config = Config.load()
     client = OllamaClient(base_url=config.ollama_url, timeout=config.request_timeout)
@@ -57,8 +57,14 @@ def run_agents_parallel(tasks: dict | str) -> str:
         "The agent will inspect the data and produce a structured analysis."
     ),
     properties={
-        "data": {"type": "string", "description": "The data or results to analyse (text, CSV, JSON, etc.)"},
-        "question": {"type": "string", "description": "The specific question to answer about the data"},
+        "data": {
+            "type": "string",
+            "description": "The data or results to analyse (text, CSV, JSON, etc.)",
+        },
+        "question": {
+            "type": "string",
+            "description": "The specific question to answer about the data",
+        },
     },
     required=["data", "question"],
 )

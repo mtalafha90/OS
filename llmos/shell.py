@@ -3,21 +3,17 @@ from __future__ import annotations
 import json
 import os
 import platform
-import sys
-from typing import Any
 
-from rich.console import Console
-from rich.markdown import Markdown
-from rich.panel import Panel
-from rich.text import Text
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
 
 from .config import Config
 from .ollama_client import OllamaClient, OllamaError
-from .tools import get_tool_schemas, dispatch_tool
-
+from .tools import dispatch_tool, get_tool_schemas
 
 _PROMPT_STYLE = Style.from_dict({"prompt": "bold ansicyan"})
 _HISTORY_FILE = os.path.expanduser("~/.config/llmos/history")
@@ -26,18 +22,23 @@ _HISTORY_FILE = os.path.expanduser("~/.config/llmos/history")
 def _detect_gpu_brief() -> str:
     """Return a one-line GPU summary for the system prompt."""
     import subprocess
+
     try:
         r = subprocess.run(
             ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
-            capture_output=True, text=True, timeout=5
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if r.returncode == 0 and r.stdout.strip():
-            gpus = [l.strip() for l in r.stdout.strip().splitlines()]
+            gpus = [line.strip() for line in r.stdout.strip().splitlines()]
             return "NVIDIA: " + " | ".join(gpus)
     except Exception:
         pass
     try:
-        r = subprocess.run(["rocm-smi", "--showproductname"], capture_output=True, text=True, timeout=5)
+        r = subprocess.run(
+            ["rocm-smi", "--showproductname"], capture_output=True, text=True, timeout=5
+        )
         if r.returncode == 0 and r.stdout.strip():
             return "AMD ROCm: " + r.stdout.strip().splitlines()[0]
     except Exception:
@@ -54,7 +55,7 @@ def _build_system_message(config: Config) -> dict:
     cwd = os.getcwd()
     try:
         with open("/etc/os-release") as f:
-            os_info = dict(l.strip().split("=", 1) for l in f if "=" in l)
+            os_info = dict(line.strip().split("=", 1) for line in f if "=" in line)
         os_release = os_info.get("PRETTY_NAME", "").strip('"') or platform.platform()
     except Exception:
         os_release = platform.platform()
@@ -103,7 +104,7 @@ class LLMShell:
                 content = message.get("content", "")
                 self.history.append({"role": "assistant", "content": content})
                 if len(self.history) > self.config.max_history * 2:
-                    self.history = self.history[-self.config.max_history * 2:]
+                    self.history = self.history[-self.config.max_history * 2 :]
                 return content
 
             messages.append(message)
@@ -131,12 +132,13 @@ class LLMShell:
                 messages.append({"role": "tool", "content": result})
 
     def _print_welcome(self) -> None:
-        models = []
         try:
-            models = self.ollama.list_models()
+            self.ollama.list_models()
         except Exception:
             pass
-        model_line = f"[dim]Model: [cyan]{self.config.model}[/] | Ollama: {self.config.ollama_url}[/]"
+        model_line = (
+            f"[dim]Model: [cyan]{self.config.model}[/] | Ollama: {self.config.ollama_url}[/]"
+        )
         self.console.print(
             Panel(
                 f"[bold cyan]LLM-OS[/]  —  Natural Language Operating System\n{model_line}",
@@ -151,9 +153,7 @@ class LLMShell:
 
         while True:
             try:
-                user_input = self.session.prompt(
-                    [("class:prompt", "llmos> ")]
-                ).strip()
+                user_input = self.session.prompt([("class:prompt", "llmos> ")]).strip()
             except KeyboardInterrupt:
                 self.console.print("\n[yellow]Use 'exit' to quit.[/]")
                 continue
@@ -186,7 +186,9 @@ class LLMShell:
             if user_input.lower() == "models":
                 try:
                     models = self.ollama.list_models()
-                    self.console.print("[cyan]Available models:[/]\n" + "\n".join(f"  • {m}" for m in models))
+                    self.console.print(
+                        "[cyan]Available models:[/]\n" + "\n".join(f"  • {m}" for m in models)
+                    )
                 except Exception as e:
                     self.console.print(f"[red]Could not list models: {e}[/]")
                 continue

@@ -5,7 +5,6 @@ from typing import Any
 
 from .base import Agent
 
-
 # Role descriptions for each specialised agent type
 _ROLE_DESCRIPTIONS: dict[str, str] = {
     "gpu_monitor": (

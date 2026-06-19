@@ -1,16 +1,18 @@
 """LLM-callable tools for voice I/O (STT + TTS)."""
+
 from __future__ import annotations
 
 from .registry import tool
 
 # Module-level singleton — created lazily so import doesn't trigger model load.
-_voice: "VoiceInterface | None" = None  # noqa: F821
+_voice: VoiceInterface | None = None  # noqa: F821
 
 
-def _get_voice() -> "VoiceInterface":  # noqa: F821
+def _get_voice() -> VoiceInterface:  # noqa: F821
     global _voice
     if _voice is None:
         from llmos.voice import VoiceInterface
+
         _voice = VoiceInterface()
     return _voice
 
@@ -92,10 +94,7 @@ def listen_microphone(
             "numpy": "numpy",
         }
         pkgs = " ".join(pkg_map[m] for m in missing)
-        return (
-            f"Missing packages: {', '.join(missing)}\n"
-            f"Install with: pip install {pkgs}"
-        )
+        return f"Missing packages: {', '.join(missing)}\nInstall with: pip install {pkgs}"
     return vi.listen(duration=duration, device=device)
 
 
@@ -110,17 +109,18 @@ def listen_microphone(
 )
 def voice_status() -> str:
     from llmos.voice import VoiceInterface
+
     av = VoiceInterface.availability()
 
     lines: list[str] = ["Voice library status:", ""]
     install_hints: list[str] = []
 
     status_map = {
-        "whisper":     ("openai-whisper",  "STT (speech-to-text)"),
-        "sounddevice": ("sounddevice",     "microphone recording"),
-        "numpy":       ("numpy",           "audio array processing"),
-        "pyttsx3":     ("pyttsx3",         "TTS (text-to-speech, Python engine)"),
-        "espeak":      (None,              "TTS (espeak/espeak-ng system binary)"),
+        "whisper": ("openai-whisper", "STT (speech-to-text)"),
+        "sounddevice": ("sounddevice", "microphone recording"),
+        "numpy": ("numpy", "audio array processing"),
+        "pyttsx3": ("pyttsx3", "TTS (text-to-speech, Python engine)"),
+        "espeak": (None, "TTS (espeak/espeak-ng system binary)"),
     }
 
     for key, (pkg, role) in status_map.items():

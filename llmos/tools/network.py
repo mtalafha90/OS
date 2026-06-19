@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import subprocess
 import socket
-from typing import Any
+import subprocess
 
 from .registry import tool
 
@@ -19,8 +18,7 @@ from .registry import tool
 def ping_host(host: str, count: int = 4) -> str:
     try:
         result = subprocess.run(
-            ["ping", "-c", str(min(count, 10)), host],
-            capture_output=True, text=True, timeout=30
+            ["ping", "-c", str(min(count, 10)), host], capture_output=True, text=True, timeout=30
         )
         return result.stdout.strip() or result.stderr.strip()
     except FileNotFoundError:
@@ -43,7 +41,7 @@ def check_port(host: str, port: int, timeout: float = 5.0) -> str:
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return f"Port {port} on {host} is OPEN"
-    except (socket.timeout, ConnectionRefusedError):
+    except (TimeoutError, ConnectionRefusedError):
         return f"Port {port} on {host} is CLOSED or unreachable"
     except OSError as e:
         return f"Error: {e}"
@@ -54,15 +52,17 @@ def check_port(host: str, port: int, timeout: float = 5.0) -> str:
     description="Perform a DNS lookup for a hostname or IP address.",
     properties={
         "hostname": {"type": "string", "description": "Hostname or IP to look up"},
-        "record_type": {"type": "string", "description": "DNS record type: A, AAAA, MX, NS, TXT (default: A)"},
+        "record_type": {
+            "type": "string",
+            "description": "DNS record type: A, AAAA, MX, NS, TXT (default: A)",
+        },
     },
     required=["hostname"],
 )
 def dns_lookup(hostname: str, record_type: str = "A") -> str:
     try:
         result = subprocess.run(
-            ["dig", "+short", record_type, hostname],
-            capture_output=True, text=True, timeout=15
+            ["dig", "+short", record_type, hostname], capture_output=True, text=True, timeout=15
         )
         out = result.stdout.strip()
         return out if out else f"No {record_type} records found for {hostname}"
@@ -84,6 +84,7 @@ def dns_lookup(hostname: str, record_type: str = "A") -> str:
 def get_network_interfaces() -> str:
     try:
         import psutil
+
         lines = []
         for iface, addrs in psutil.net_if_addrs().items():
             stats = psutil.net_if_stats().get(iface)
@@ -91,6 +92,7 @@ def get_network_interfaces() -> str:
             lines.append(f"{iface} [{status}]")
             for addr in addrs:
                 import psutil
+
                 fam = {2: "IPv4", 10: "IPv6", 17: "MAC"}.get(addr.family, str(addr.family))
                 lines.append(f"  {fam}: {addr.address}")
         return "\n".join(lines) if lines else "No interfaces found"
@@ -104,7 +106,10 @@ def get_network_interfaces() -> str:
     description="Make an HTTP request and return the response.",
     properties={
         "url": {"type": "string", "description": "URL to request"},
-        "method": {"type": "string", "description": "HTTP method: GET, POST, PUT, DELETE (default: GET)"},
+        "method": {
+            "type": "string",
+            "description": "HTTP method: GET, POST, PUT, DELETE (default: GET)",
+        },
         "headers": {"type": "object", "description": "Request headers as key-value pairs"},
         "body": {"type": "string", "description": "Request body (for POST/PUT)"},
         "timeout": {"type": "integer", "description": "Timeout in seconds (default: 30)"},
@@ -120,6 +125,7 @@ def http_request(
 ) -> str:
     try:
         import httpx
+
         with httpx.Client(timeout=timeout, follow_redirects=True) as client:
             resp = client.request(method.upper(), url, headers=headers or {}, content=body)
             content = resp.text[:2000]
@@ -151,15 +157,21 @@ def http_request(
 def get_network_stats() -> str:
     try:
         import psutil
+
         counters = psutil.net_io_counters(pernic=True)
-        lines = [f"{'Interface':<15} {'Sent':>12} {'Received':>12} {'Pkt Sent':>10} {'Pkt Recv':>10}"]
+        lines = [
+            f"{'Interface':<15} {'Sent':>12} {'Received':>12} {'Pkt Sent':>10} {'Pkt Recv':>10}"
+        ]
         lines.append("-" * 65)
         for iface, c in counters.items():
+
             def fmt(n: int) -> str:
-                for u in ("B","K","M","G"):
-                    if n < 1024: return f"{n:.0f}{u}"
+                for u in ("B", "K", "M", "G"):
+                    if n < 1024:
+                        return f"{n:.0f}{u}"
                     n //= 1024
                 return f"{n}T"
+
             lines.append(
                 f"{iface:<15} {fmt(c.bytes_sent):>12} {fmt(c.bytes_recv):>12} "
                 f"{c.packets_sent:>10} {c.packets_recv:>10}"

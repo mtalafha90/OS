@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import os
-import signal
 import subprocess
-from typing import Any
 
 from .registry import tool
 
@@ -12,16 +10,25 @@ from .registry import tool
     name="list_processes",
     description="List running processes. Optionally filter by name.",
     properties={
-        "filter_name": {"type": "string", "description": "Filter processes whose name contains this string"},
-        "show_all": {"type": "boolean", "description": "Show all users' processes (default: current user only)"},
+        "filter_name": {
+            "type": "string",
+            "description": "Filter processes whose name contains this string",
+        },
+        "show_all": {
+            "type": "boolean",
+            "description": "Show all users' processes (default: current user only)",
+        },
     },
     required=[],
 )
 def list_processes(filter_name: str | None = None, show_all: bool = False) -> str:
     try:
         import psutil
+
         procs = []
-        for p in psutil.process_iter(["pid", "name", "username", "cpu_percent", "memory_info", "status", "cmdline"]):
+        for p in psutil.process_iter(
+            ["pid", "name", "username", "cpu_percent", "memory_info", "status", "cmdline"]
+        ):
             try:
                 info = p.info
                 if not show_all and info["username"] != os.environ.get("USER"):
@@ -43,12 +50,11 @@ def list_processes(filter_name: str | None = None, show_all: bool = False) -> st
 
     except ImportError:
         result = subprocess.run(
-            ["ps", "aux" if show_all else "ux"],
-            capture_output=True, text=True, timeout=10
+            ["ps", "aux" if show_all else "ux"], capture_output=True, text=True, timeout=10
         )
         if filter_name:
             lines = result.stdout.splitlines()
-            filtered = [lines[0]] + [l for l in lines[1:] if filter_name.lower() in l.lower()]
+            filtered = [lines[0]] + [ln for ln in lines[1:] if filter_name.lower() in ln.lower()]
             return "\n".join(filtered)
         return result.stdout
 
@@ -58,14 +64,19 @@ def list_processes(filter_name: str | None = None, show_all: bool = False) -> st
     description="Send a signal to a process by PID. Default signal is SIGTERM (15).",
     properties={
         "pid": {"type": "integer", "description": "Process ID to signal"},
-        "signal_num": {"type": "integer", "description": "Signal number (default: 15=SIGTERM, 9=SIGKILL)"},
+        "signal_num": {
+            "type": "integer",
+            "description": "Signal number (default: 15=SIGTERM, 9=SIGKILL)",
+        },
     },
     required=["pid"],
 )
 def kill_process(pid: int, signal_num: int = 15) -> str:
     try:
         os.kill(pid, signal_num)
-        sig_name = {15: "SIGTERM", 9: "SIGKILL", 1: "SIGHUP", 2: "SIGINT"}.get(signal_num, str(signal_num))
+        sig_name = {15: "SIGTERM", 9: "SIGKILL", 1: "SIGHUP", 2: "SIGINT"}.get(
+            signal_num, str(signal_num)
+        )
         return f"Sent {sig_name} to process {pid}"
     except ProcessLookupError:
         return f"Error: no process with PID {pid}"
@@ -120,7 +131,10 @@ def run_command(command: str, timeout: int = 30, working_dir: str | None = None)
             "type": "string",
             "description": "Action: start | stop | restart | status | enable | disable | list",
         },
-        "service": {"type": "string", "description": "Service name (e.g. 'nginx'). Not needed for 'list'."},
+        "service": {
+            "type": "string",
+            "description": "Service name (e.g. 'nginx'). Not needed for 'list'.",
+        },
     },
     required=["action"],
 )
@@ -156,12 +170,16 @@ def get_system_info() -> str:
     lines = []
 
     try:
-        import psutil, platform
+        import platform
+
+        import psutil
+
         cpu = psutil.cpu_percent(interval=0.5)
         mem = psutil.virtual_memory()
         disk = psutil.disk_usage("/")
         boot = psutil.boot_time()
         import datetime
+
         uptime = datetime.datetime.now() - datetime.datetime.fromtimestamp(boot)
 
         lines += [

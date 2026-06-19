@@ -1,4 +1,5 @@
 """LLM-callable tool wrappers for the plugin system."""
+
 from __future__ import annotations
 
 from .registry import tool
@@ -10,6 +11,7 @@ def _get_loader():
     global _loader
     if _loader is None:
         from llmos.plugins import PluginLoader
+
         _loader = PluginLoader()
     return _loader
 
@@ -94,10 +96,7 @@ def reload_plugins() -> str:
     try:
         all_tools = loader.load_all()
         if all_tools:
-            return (
-                f"Loaded {len(all_tools)} tool(s) from plugin directory: "
-                + ", ".join(all_tools)
-            )
+            return f"Loaded {len(all_tools)} tool(s) from plugin directory: " + ", ".join(all_tools)
         return (
             "Plugin directory scanned. No tools registered "
             "(directory may be empty or contain only example_plugin.py)."

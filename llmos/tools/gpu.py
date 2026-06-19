@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
-from typing import Any
 
 from .registry import tool
 
@@ -64,8 +62,17 @@ def get_gpu_info() -> str:
     )
     if nvidia_out:
         headers = [
-            "Index", "Name", "Driver", "VRAM Total", "VRAM Used", "VRAM Free",
-            "GPU %", "Mem %", "Temp °C", "Power W", "Limit W",
+            "Index",
+            "Name",
+            "Driver",
+            "VRAM Total",
+            "VRAM Used",
+            "VRAM Free",
+            "GPU %",
+            "Mem %",
+            "Temp °C",
+            "Power W",
+            "Limit W",
         ]
         rows = []
         for line in nvidia_out.splitlines():
@@ -94,7 +101,9 @@ def get_gpu_info() -> str:
             rc2, cuda_out, _ = _run(["cat", "/usr/local/cuda/version.json"])
             if rc2 == 0:
                 try:
-                    sections.append(f"  CUDA Toolkit: {json.loads(cuda_out).get('cuda', {}).get('version', 'unknown')}")
+                    sections.append(
+                        f"  CUDA Toolkit: {json.loads(cuda_out).get('cuda', {}).get('version', 'unknown')}"
+                    )
                 except Exception:
                     pass
 
@@ -143,6 +152,7 @@ def get_gpu_info() -> str:
 )
 def monitor_gpu(duration: int = 10, interval: int = 2) -> str:
     import time
+
     samples = []
     end = time.time() + min(duration, 120)
 
@@ -150,7 +160,9 @@ def monitor_gpu(duration: int = 10, interval: int = 2) -> str:
         ts = time.strftime("%H:%M:%S")
         line_parts = [f"[{ts}]"]
 
-        nv = _nvidia_smi(fmt="index,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw")
+        nv = _nvidia_smi(
+            fmt="index,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw"
+        )
         if nv:
             for row in nv.splitlines():
                 idx, gpu_pct, mem_used, mem_total, temp, pwr = [x.strip() for x in row.split(",")]
@@ -225,10 +237,12 @@ def get_cuda_info() -> str:
     rc, nvcc, _ = _run(["nvcc", "--version"])
     if rc == 0:
         lines.append("CUDA Toolkit (nvcc):")
-        lines += [f"  {l}" for l in nvcc.splitlines() if l.strip()]
+        lines += [f"  {ln}" for ln in nvcc.splitlines() if ln.strip()]
     else:
         # Check pre-installed toolkit
-        rc2, ver, _ = _run(["bash", "-c", "cat /usr/local/cuda/version.json 2>/dev/null || echo ''"])
+        rc2, ver, _ = _run(
+            ["bash", "-c", "cat /usr/local/cuda/version.json 2>/dev/null || echo ''"]
+        )
         if rc2 == 0 and ver:
             try:
                 lines.append(f"CUDA Toolkit: {json.loads(ver)}")
@@ -249,17 +263,27 @@ except Exception as e:
     rc3, py_out, _ = _run(["python3", "-c", py_code], timeout=30)
     if rc3 == 0 and py_out:
         lines.append("\nPyTorch CUDA devices:")
-        lines += [f"  {l}" for l in py_out.splitlines()]
+        lines += [f"  {ln}" for ln in py_out.splitlines()]
 
     # cuDNN
-    rc4, cudnn, _ = _run(["bash", "-c", (
-        "python3 -c 'import torch; print(torch.backends.cudnn.version())' 2>/dev/null || "
-        "find /usr -name 'cudnn_version.h' 2>/dev/null | head -1 | xargs grep -h CUDNN_MAJOR"
-    )])
+    rc4, cudnn, _ = _run(
+        [
+            "bash",
+            "-c",
+            (
+                "python3 -c 'import torch; print(torch.backends.cudnn.version())' 2>/dev/null || "
+                "find /usr -name 'cudnn_version.h' 2>/dev/null | head -1 | xargs grep -h CUDNN_MAJOR"
+            ),
+        ]
+    )
     if rc4 == 0 and cudnn:
         lines.append(f"\ncuDNN: {cudnn}")
 
-    return "\n".join(lines) if lines else "CUDA not found. Install with: sudo apt install cuda-toolkit-12-6"
+    return (
+        "\n".join(lines)
+        if lines
+        else "CUDA not found. Install with: sudo apt install cuda-toolkit-12-6"
+    )
 
 
 @tool(

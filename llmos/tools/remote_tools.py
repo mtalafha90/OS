@@ -1,15 +1,13 @@
-from __future__ import annotations
-
 """LLM-callable tools for remote HPC cluster management via SSH/SLURM."""
 
-import json
+from __future__ import annotations
 
 from .registry import tool
-
 
 # ---------------------------------------------------------------------------
 # Cluster registration
 # ---------------------------------------------------------------------------
+
 
 @tool(
     name="add_cluster",
@@ -18,8 +16,14 @@ from .registry import tool
         "The cluster credentials are stored in ~/.config/llmos/clusters.json."
     ),
     properties={
-        "name": {"type": "string", "description": "Short identifier for this cluster (e.g. 'frontier')"},
-        "host": {"type": "string", "description": "Hostname or IP address of the cluster login node"},
+        "name": {
+            "type": "string",
+            "description": "Short identifier for this cluster (e.g. 'frontier')",
+        },
+        "host": {
+            "type": "string",
+            "description": "Hostname or IP address of the cluster login node",
+        },
         "username": {"type": "string", "description": "SSH username"},
         "key_file": {"type": "string", "description": "Path to the SSH private key file"},
         "port": {"type": "integer", "description": "SSH port (default: 22)"},
@@ -28,6 +32,7 @@ from .registry import tool
 )
 def add_cluster(name: str, host: str, username: str, key_file: str, port: int = 22) -> str:
     from llmos.remote import add_cluster as _add
+
     _add(name, host, username, key_file, port)
     return f"Cluster '{name}' registered ({username}@{host}:{port})."
 
@@ -40,6 +45,7 @@ def add_cluster(name: str, host: str, username: str, key_file: str, port: int = 
 )
 def list_clusters() -> str:
     from llmos.remote import list_clusters as _list
+
     names = _list()
     if not names:
         return "No clusters registered. Use add_cluster to register one."
@@ -50,11 +56,15 @@ def list_clusters() -> str:
 # Command execution
 # ---------------------------------------------------------------------------
 
+
 @tool(
     name="run_remote_command",
     description="Run an arbitrary shell command on a registered HPC cluster via SSH.",
     properties={
-        "cluster": {"type": "string", "description": "Cluster name (as registered with add_cluster)"},
+        "cluster": {
+            "type": "string",
+            "description": "Cluster name (as registered with add_cluster)",
+        },
         "command": {"type": "string", "description": "Shell command to execute on the remote host"},
         "timeout": {"type": "integer", "description": "Command timeout in seconds (default: 60)"},
     },
@@ -62,6 +72,7 @@ def list_clusters() -> str:
 )
 def run_remote_command(cluster: str, command: str, timeout: int = 60) -> str:
     from llmos.remote import get_cluster
+
     executor = get_cluster(cluster)
     with executor:
         stdout, stderr, rc = executor.run_command(command, timeout=timeout)
@@ -78,6 +89,7 @@ def run_remote_command(cluster: str, command: str, timeout: int = 60) -> str:
 # SLURM job submission and management
 # ---------------------------------------------------------------------------
 
+
 @tool(
     name="submit_hpc_job",
     description=(
@@ -93,7 +105,10 @@ def run_remote_command(cluster: str, command: str, timeout: int = 60) -> str:
         },
         "job_name": {"type": "string", "description": "SLURM job name (default: llmos_job)"},
         "nodes": {"type": "integer", "description": "Number of nodes (default: 1)"},
-        "gpus": {"type": "integer", "description": "Number of GPUs per node via --gres=gpu:<n> (default: 0)"},
+        "gpus": {
+            "type": "integer",
+            "description": "Number of GPUs per node via --gres=gpu:<n> (default: 0)",
+        },
         "hours": {"type": "number", "description": "Wall-clock time limit in hours (default: 1)"},
         "partition": {"type": "string", "description": "SLURM partition name (default: compute)"},
     },
@@ -142,6 +157,7 @@ def submit_hpc_job(
 )
 def get_hpc_job_status(cluster: str, job_id: str) -> str:
     from llmos.remote import get_cluster
+
     executor = get_cluster(cluster)
     with executor:
         status = executor.get_slurm_status(job_id)
@@ -163,6 +179,7 @@ def get_hpc_job_status(cluster: str, job_id: str) -> str:
 )
 def cancel_hpc_job(cluster: str, job_id: str) -> str:
     from llmos.remote import get_cluster
+
     executor = get_cluster(cluster)
     with executor:
         success = executor.cancel_slurm(job_id)
@@ -181,6 +198,7 @@ def cancel_hpc_job(cluster: str, job_id: str) -> str:
 )
 def list_hpc_jobs(cluster: str) -> str:
     from llmos.remote import get_cluster
+
     executor = get_cluster(cluster)
     with executor:
         jobs = executor.list_slurm_jobs()
@@ -192,8 +210,8 @@ def list_hpc_jobs(cluster: str) -> str:
     lines = [f"Jobs on {cluster}:", header, "-" * 72]
     for j in jobs:
         lines.append(
-            f"{j.get('job_id',''):<12} {j.get('name',''):<20} "
-            f"{j.get('state',''):<12} {j.get('node',''):<16} {j.get('elapsed','')}"
+            f"{j.get('job_id', ''):<12} {j.get('name', ''):<20} "
+            f"{j.get('state', ''):<12} {j.get('node', ''):<16} {j.get('elapsed', '')}"
         )
     return "\n".join(lines)
 
@@ -201,6 +219,7 @@ def list_hpc_jobs(cluster: str) -> str:
 # ---------------------------------------------------------------------------
 # File transfers
 # ---------------------------------------------------------------------------
+
 
 @tool(
     name="upload_to_cluster",
@@ -214,6 +233,7 @@ def list_hpc_jobs(cluster: str) -> str:
 )
 def upload_to_cluster(cluster: str, local_path: str, remote_path: str) -> str:
     from llmos.remote import get_cluster
+
     executor = get_cluster(cluster)
     with executor:
         executor.upload_file(local_path, remote_path)
@@ -232,6 +252,7 @@ def upload_to_cluster(cluster: str, local_path: str, remote_path: str) -> str:
 )
 def download_from_cluster(cluster: str, remote_path: str, local_path: str) -> str:
     from llmos.remote import get_cluster
+
     executor = get_cluster(cluster)
     with executor:
         executor.download_file(remote_path, local_path)

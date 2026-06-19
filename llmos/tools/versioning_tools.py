@@ -1,4 +1,5 @@
 """LLM-callable tool wrappers for the simulation run tracker."""
+
 from __future__ import annotations
 
 import json
@@ -9,13 +10,14 @@ from .registry import tool
 if TYPE_CHECKING:
     from llmos.versioning import SimulationTracker
 
-_tracker: "SimulationTracker | None" = None
+_tracker: SimulationTracker | None = None
 
 
-def _get_tracker() -> "SimulationTracker":
+def _get_tracker() -> SimulationTracker:
     global _tracker
     if _tracker is None:
         from llmos.versioning import SimulationTracker
+
         _tracker = SimulationTracker()
     return _tracker
 
@@ -40,7 +42,7 @@ def _get_tracker() -> "SimulationTracker":
         },
         "parameters": {
             "type": "object",
-            "description": "Key-value dict of simulation parameters (e.g. {\"timestep\": 0.001, \"box_size\": 10}).",
+            "description": 'Key-value dict of simulation parameters (e.g. {"timestep": 0.001, "box_size": 10}).',
         },
         "description": {
             "type": "string",
@@ -49,7 +51,7 @@ def _get_tracker() -> "SimulationTracker":
         "tags": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "List of tags for filtering/grouping runs (e.g. [\"md\", \"NVT\", \"water\"]).",
+            "description": 'List of tags for filtering/grouping runs (e.g. ["md", "NVT", "water"]).',
         },
         "output_dir": {
             "type": "string",
@@ -102,7 +104,7 @@ def track_simulation(
         },
         "metrics": {
             "type": "object",
-            "description": "Key-value dict of result metrics (e.g. {\"energy\": -1234.5, \"rmsd\": 0.9}).",
+            "description": 'Key-value dict of result metrics (e.g. {"energy": -1234.5, "rmsd": 0.9}).',
         },
         "result_files": {
             "type": "array",
@@ -262,9 +264,10 @@ def compare_simulations(run_ids: list[str]) -> str:
     # Run summary
     lines.append("Runs:")
     for r in runs:
-        dur = ""
         if r.get("end_time") and r.get("start_time"):
-            lines.append(f"  {r['id'][:8]}  [{r['status']:8}]  {r['name']}  tags={r.get('tags', [])}")
+            lines.append(
+                f"  {r['id'][:8]}  [{r['status']:8}]  {r['name']}  tags={r.get('tags', [])}"
+            )
         else:
             lines.append(f"  {r['id'][:8]}  [{r['status']:8}]  {r['name']}  (still running)")
 
@@ -278,7 +281,9 @@ def compare_simulations(run_ids: list[str]) -> str:
             vals = params[param_key]
             unique_vals = set(str(v) for v in vals.values())
             flag = " *" if len(unique_vals) > 1 else ""
-            row = f"  {param_key:<30} " + "  ".join(f"{str(vals.get(cid, 'N/A')):<30}" for cid in col_ids)
+            row = f"  {param_key:<30} " + "  ".join(
+                f"{str(vals.get(cid, 'N/A')):<30}" for cid in col_ids
+            )
             lines.append(row + flag)
 
     # Metrics table
@@ -291,7 +296,9 @@ def compare_simulations(run_ids: list[str]) -> str:
             vals = metrics_data[metric_key]
             unique_vals = set(str(v) for v in vals.values())
             flag = " *" if len(unique_vals) > 1 else ""
-            row = f"  {metric_key:<30} " + "  ".join(f"{str(vals.get(cid, 'N/A')):<30}" for cid in col_ids)
+            row = f"  {metric_key:<30} " + "  ".join(
+                f"{str(vals.get(cid, 'N/A')):<30}" for cid in col_ids
+            )
             lines.append(row + flag)
 
     lines.append("\n(* = values differ across runs)")

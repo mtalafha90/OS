@@ -1,15 +1,15 @@
-from __future__ import annotations
-
 """LLM-callable tools for Docker, Podman, and Singularity container management."""
 
+from __future__ import annotations
+
 import json
-from typing import Optional
 
 from .registry import tool
 
 
 def _manager():
     from llmos.containers import ContainerManager
+
     return ContainerManager()
 
 
@@ -38,8 +38,8 @@ def list_container_images(runtime: str = "") -> str:
     lines.append("-" * 72)
     for img in images:
         lines.append(
-            f"{img.get('id','')[:12]:<15} {img.get('repository',''):<35} "
-            f"{img.get('tag',''):<15} {img.get('size','')}"
+            f"{img.get('id', '')[:12]:<15} {img.get('repository', ''):<35} "
+            f"{img.get('tag', ''):<15} {img.get('size', '')}"
         )
     return "\n".join(lines)
 
@@ -102,7 +102,7 @@ def pull_container_image(image: str, runtime: str = "") -> str:
 def run_container(
     image: str,
     command: str = "",
-    volumes: Optional[dict] = None,
+    volumes: dict | None = None,
     use_gpu: bool = False,
     runtime: str = "",
     name: str = "",
@@ -148,8 +148,8 @@ def list_running_containers(runtime: str = "") -> str:
     lines.append("-" * 80)
     for c in containers:
         lines.append(
-            f"{c.get('id','')[:12]:<15} {c.get('name',''):<25} "
-            f"{c.get('image',''):<35} {c.get('status','')}"
+            f"{c.get('id', '')[:12]:<15} {c.get('name', ''):<25} "
+            f"{c.get('image', ''):<35} {c.get('status', '')}"
         )
     return "\n".join(lines)
 

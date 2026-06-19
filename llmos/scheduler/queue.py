@@ -1,4 +1,5 @@
 """SQLite-backed job queue for simulation workloads."""
+
 from __future__ import annotations
 
 import json
@@ -119,9 +120,7 @@ class JobQueue:
     # ------------------------------------------------------------------
     def get_job(self, job_id: str) -> dict[str, Any] | None:
         """Return a single job record or None if not found."""
-        row = self._conn.execute(
-            "SELECT * FROM jobs WHERE id = ?", (job_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
         return _row_to_dict(row) if row else None
 
     def list_jobs(
@@ -178,9 +177,7 @@ class JobQueue:
 
         Returns True if the job was found and its status updated.
         """
-        row = self._conn.execute(
-            "SELECT status, pid FROM jobs WHERE id = ?", (job_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT status, pid FROM jobs WHERE id = ?", (job_id,)).fetchone()
         if row is None:
             return False
         if row["status"] not in ("pending", "running"):
@@ -195,8 +192,9 @@ class JobQueue:
         # Best-effort process kill for running jobs
         if row["status"] == "running" and row["pid"]:
             try:
-                import signal
                 import os
+                import signal
+
                 os.kill(row["pid"], signal.SIGTERM)
             except Exception:
                 pass

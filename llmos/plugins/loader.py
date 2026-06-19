@@ -4,10 +4,10 @@ Loads Python files from ~/.config/llmos/tools/ and registers any functions
 decorated with @tool(...) from llmos.tools.registry into the global tool
 registry.
 """
+
 from __future__ import annotations
 
 import importlib.util
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -46,6 +46,7 @@ def hello_world(name: str = "World") -> str:
 # PluginLoader
 # ---------------------------------------------------------------------------
 
+
 class PluginLoader:
     """Manage dynamic plugins stored in ~/.config/llmos/tools/.
 
@@ -74,6 +75,7 @@ class PluginLoader:
     @staticmethod
     def _tool_names_before() -> set[str]:
         from llmos.tools.registry import _REGISTRY
+
         return set(_REGISTRY.keys())
 
     # -----------------------------------------------------------------------
@@ -120,7 +122,7 @@ class PluginLoader:
 
         # If already loaded, reload to pick up changes
         if mod_name in sys.modules:
-            existing = sys.modules.pop(mod_name)
+            sys.modules.pop(mod_name)
             # Also remove from our tracking so we refresh
             self._loaded.pop(plugin_name, None)
 
@@ -178,6 +180,7 @@ class PluginLoader:
 
         # Remove tools from the global registry
         from llmos.tools.registry import _REGISTRY
+
         for tool_name in info["tools"]:
             _REGISTRY.pop(tool_name, None)
 

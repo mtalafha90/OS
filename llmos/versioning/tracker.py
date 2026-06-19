@@ -6,6 +6,7 @@ and freeform notes.
 
 Storage location: ~/.config/llmos/simulations.db
 """
+
 from __future__ import annotations
 
 import json
@@ -177,9 +178,7 @@ class SimulationTracker:
     # ------------------------------------------------------------------
     def get_run(self, run_id: str) -> dict[str, Any] | None:
         """Return a single run record or None."""
-        row = self._conn.execute(
-            "SELECT * FROM runs WHERE id = ?", (run_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
         return _row_to_dict(row) if row else None
 
     def list_runs(
@@ -258,7 +257,12 @@ class SimulationTracker:
                 records.append(rec)
 
         if not records:
-            return {"error": "No runs found for the given IDs.", "runs": [], "parameters": {}, "metrics": {}}
+            return {
+                "error": "No runs found for the given IDs.",
+                "runs": [],
+                "parameters": {},
+                "metrics": {},
+            }
 
         # Collect all parameter / metric keys across runs
         all_param_keys: set[str] = set()
@@ -269,7 +273,9 @@ class SimulationTracker:
 
         parameters: dict[str, dict[str, Any]] = {}
         for key in sorted(all_param_keys):
-            parameters[key] = {rec["id"]: rec.get("parameters", {}).get(key, None) for rec in records}
+            parameters[key] = {
+                rec["id"]: rec.get("parameters", {}).get(key, None) for rec in records
+            }
 
         metrics: dict[str, dict[str, Any]] = {}
         for key in sorted(all_metric_keys):

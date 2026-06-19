@@ -79,7 +79,10 @@ def apt_update() -> str:
     name="apt_upgrade",
     description="Upgrade all installed packages to their latest versions.",
     properties={
-        "dist_upgrade": {"type": "boolean", "description": "Use dist-upgrade (handles dependency changes)"},
+        "dist_upgrade": {
+            "type": "boolean",
+            "description": "Use dist-upgrade (handles dependency changes)",
+        },
     },
     required=[],
 )
@@ -116,8 +119,14 @@ def apt_show(package: str) -> str:
     name="list_installed_packages",
     description="List installed packages for apt or pip.",
     properties={
-        "manager": {"type": "string", "description": "Package manager: 'apt' or 'pip' (default: apt)"},
-        "filter_name": {"type": "string", "description": "Filter packages by name containing this string"},
+        "manager": {
+            "type": "string",
+            "description": "Package manager: 'apt' or 'pip' (default: apt)",
+        },
+        "filter_name": {
+            "type": "string",
+            "description": "Filter packages by name containing this string",
+        },
     },
     required=[],
 )
@@ -129,7 +138,7 @@ def list_installed_packages(manager: str = "apt", filter_name: str | None = None
 
     if filter_name:
         lines = result.splitlines()
-        filtered = [l for l in lines if filter_name.lower() in l.lower()]
+        filtered = [ln for ln in lines if filter_name.lower() in ln.lower()]
         return "\n".join(filtered) if filtered else f"No packages matching '{filter_name}'"
     return result
 

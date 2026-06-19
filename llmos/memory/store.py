@@ -4,6 +4,7 @@ Uses ChromaDB with sentence-transformers embeddings when available;
 falls back to SQLite FTS5 with keyword matching otherwise.
 Storage location: ~/.config/llmos/memory/
 """
+
 from __future__ import annotations
 
 import json
@@ -31,6 +32,7 @@ def _now() -> str:
 def _try_import_chromadb():
     try:
         import chromadb  # noqa: F401
+
         return chromadb
     except ImportError:
         return None
@@ -39,6 +41,7 @@ def _try_import_chromadb():
 def _try_import_sentence_transformers():
     try:
         from sentence_transformers import SentenceTransformer  # noqa: F401
+
         return SentenceTransformer
     except ImportError:
         return None
@@ -181,6 +184,7 @@ class _ChromaBackend:
         SentenceTransformer = _try_import_sentence_transformers()
         if SentenceTransformer is not None:
             from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+
             ef = SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
         else:
             ef = None  # ChromaDB will use its default embedding function
@@ -218,14 +222,18 @@ class _ChromaBackend:
             doc = results["documents"][0][i]
             meta = results["metadatas"][0][i]
             distance = results["distances"][0][i] if results.get("distances") else None
-            out.append({
-                "id": mid,
-                "content": doc,
-                "category": meta.get("category", ""),
-                "metadata": {k: v for k, v in meta.items() if k not in ("category", "created_at")},
-                "created_at": meta.get("created_at", ""),
-                "distance": distance,
-            })
+            out.append(
+                {
+                    "id": mid,
+                    "content": doc,
+                    "category": meta.get("category", ""),
+                    "metadata": {
+                        k: v for k, v in meta.items() if k not in ("category", "created_at")
+                    },
+                    "created_at": meta.get("created_at", ""),
+                    "distance": distance,
+                }
+            )
         return out
 
     def list_recent(self, category: str | None, limit: int) -> list[dict]:
@@ -239,13 +247,17 @@ class _ChromaBackend:
         for i, mid in enumerate(results["ids"]):
             doc = results["documents"][i]
             meta = results["metadatas"][i]
-            out.append({
-                "id": mid,
-                "content": doc,
-                "category": meta.get("category", ""),
-                "metadata": {k: v for k, v in meta.items() if k not in ("category", "created_at")},
-                "created_at": meta.get("created_at", ""),
-            })
+            out.append(
+                {
+                    "id": mid,
+                    "content": doc,
+                    "category": meta.get("category", ""),
+                    "metadata": {
+                        k: v for k, v in meta.items() if k not in ("category", "created_at")
+                    },
+                    "created_at": meta.get("created_at", ""),
+                }
+            )
         # Sort by created_at descending
         out.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         return out[:limit]

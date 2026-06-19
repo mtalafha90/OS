@@ -13,8 +13,7 @@ def _run(cmd: list[str], timeout: int = 60, cwd: str | None = None, env: dict | 
     try:
         merged_env = {**os.environ, **(env or {})}
         r = subprocess.run(
-            cmd, capture_output=True, text=True,
-            timeout=timeout, cwd=cwd, env=merged_env
+            cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd, env=merged_env
         )
         out = r.stdout.strip()
         err = r.stderr.strip()
@@ -37,9 +36,15 @@ def _run(cmd: list[str], timeout: int = 60, cwd: str | None = None, env: dict | 
     ),
     properties={
         "code": {"type": "string", "description": "Python code to execute"},
-        "timeout": {"type": "integer", "description": "Maximum execution time in seconds (default: 120)"},
+        "timeout": {
+            "type": "integer",
+            "description": "Maximum execution time in seconds (default: 120)",
+        },
         "conda_env": {"type": "string", "description": "Conda environment to use (default: base)"},
-        "save_output": {"type": "string", "description": "Save output to this file path (optional)"},
+        "save_output": {
+            "type": "string",
+            "description": "Save output to this file path (optional)",
+        },
     },
     required=["code"],
 )
@@ -81,12 +86,18 @@ def run_python_code(
     properties={
         "port": {"type": "integer", "description": "Port to listen on (default: 8888)"},
         "directory": {"type": "string", "description": "Working directory (default: /home/llmos)"},
-        "no_browser": {"type": "boolean", "description": "Do not open browser automatically (default: true)"},
+        "no_browser": {
+            "type": "boolean",
+            "description": "Do not open browser automatically (default: true)",
+        },
     },
     required=[],
 )
-def launch_jupyter(port: int = 8888, directory: str = "/home/llmos", no_browser: bool = True) -> str:
+def launch_jupyter(
+    port: int = 8888, directory: str = "/home/llmos", no_browser: bool = True
+) -> str:
     import shutil
+
     if not shutil.which("jupyter"):
         return (
             "JupyterLab not installed. Install with:\n"
@@ -95,17 +106,13 @@ def launch_jupyter(port: int = 8888, directory: str = "/home/llmos", no_browser:
         )
 
     # Check if already running
-    check = subprocess.run(
-        ["pgrep", "-f", f"jupyter.*{port}"], capture_output=True, text=True
-    )
+    check = subprocess.run(["pgrep", "-f", f"jupyter.*{port}"], capture_output=True, text=True)
     if check.returncode == 0:
-        return (
-            f"JupyterLab already running on port {port}.\n"
-            f"Open: http://localhost:{port}"
-        )
+        return f"JupyterLab already running on port {port}.\nOpen: http://localhost:{port}"
 
     cmd = [
-        "jupyter", "lab",
+        "jupyter",
+        "lab",
         f"--port={port}",
         f"--notebook-dir={directory}",
         "--ip=0.0.0.0",
@@ -123,6 +130,7 @@ def launch_jupyter(port: int = 8888, directory: str = "/home/llmos", no_browser:
     )
 
     import time
+
     time.sleep(2)
 
     return (
@@ -142,26 +150,43 @@ def launch_jupyter(port: int = 8888, directory: str = "/home/llmos", no_browser:
 def get_scientific_stack() -> str:
     checks = [
         ("python3", ["python3", "--version"]),
-        ("numpy",   ["python3", "-c", "import numpy; print(numpy.__version__)"]),
-        ("scipy",   ["python3", "-c", "import scipy; print(scipy.__version__)"]),
-        ("pandas",  ["python3", "-c", "import pandas; print(pandas.__version__)"]),
-        ("torch",   ["python3", "-c", "import torch; print(torch.__version__, '| CUDA:', torch.cuda.is_available(), '| Devices:', torch.cuda.device_count())"]),
-        ("cupy",    ["python3", "-c", "import cupy; print(cupy.__version__, '|', cupy.cuda.runtime.runtimeGetVersion())"]),
-        ("jax",     ["python3", "-c", "import jax; print(jax.__version__, '| devices:', jax.devices())"]),
+        ("numpy", ["python3", "-c", "import numpy; print(numpy.__version__)"]),
+        ("scipy", ["python3", "-c", "import scipy; print(scipy.__version__)"]),
+        ("pandas", ["python3", "-c", "import pandas; print(pandas.__version__)"]),
+        (
+            "torch",
+            [
+                "python3",
+                "-c",
+                "import torch; print(torch.__version__, '| CUDA:', torch.cuda.is_available(), '| Devices:', torch.cuda.device_count())",
+            ],
+        ),
+        (
+            "cupy",
+            [
+                "python3",
+                "-c",
+                "import cupy; print(cupy.__version__, '|', cupy.cuda.runtime.runtimeGetVersion())",
+            ],
+        ),
+        (
+            "jax",
+            ["python3", "-c", "import jax; print(jax.__version__, '| devices:', jax.devices())"],
+        ),
         ("sklearn", ["python3", "-c", "import sklearn; print(sklearn.__version__)"]),
         ("matplotlib", ["python3", "-c", "import matplotlib; print(matplotlib.__version__)"]),
         ("jupyter", ["jupyter", "--version"]),
-        ("mpi4py",  ["python3", "-c", "import mpi4py; print(mpi4py.__version__)"]),
-        ("dask",    ["python3", "-c", "import dask; print(dask.__version__)"]),
-        ("h5py",    ["python3", "-c", "import h5py; print(h5py.__version__)"]),
+        ("mpi4py", ["python3", "-c", "import mpi4py; print(mpi4py.__version__)"]),
+        ("dask", ["python3", "-c", "import dask; print(dask.__version__)"]),
+        ("h5py", ["python3", "-c", "import h5py; print(h5py.__version__)"]),
         ("netcdf4", ["python3", "-c", "import netCDF4; print(netCDF4.__version__)"]),
-        ("numba",   ["python3", "-c", "import numba; print(numba.__version__)"]),
+        ("numba", ["python3", "-c", "import numba; print(numba.__version__)"]),
         ("GROMACS", ["gmx", "--version"]),
-        ("OpenFOAM",["foamVersion"]),
-        ("LAMMPS",  ["lmp", "-h"]),
+        ("OpenFOAM", ["foamVersion"]),
+        ("LAMMPS", ["lmp", "-h"]),
         ("OpenMPI", ["mpirun", "--version"]),
-        ("CUDA",    ["nvcc", "--version"]),
-        ("ROCm",    ["rocminfo"]),
+        ("CUDA", ["nvcc", "--version"]),
+        ("ROCm", ["rocminfo"]),
     ]
 
     lines = [f"{'Package':<15} {'Status':<10} {'Info'}"]
@@ -188,10 +213,16 @@ def get_scientific_stack() -> str:
         "with optional MPI parallelism and GPU binding."
     ),
     properties={
-        "command": {"type": "string", "description": "Simulation command (e.g. 'gmx mdrun -v -deffnm md' or 'lmp -in in.lj')"},
+        "command": {
+            "type": "string",
+            "description": "Simulation command (e.g. 'gmx mdrun -v -deffnm md' or 'lmp -in in.lj')",
+        },
         "workdir": {"type": "string", "description": "Working directory containing input files"},
         "mpi_ranks": {"type": "integer", "description": "Number of MPI ranks (default: 1)"},
-        "gpu_ids": {"type": "string", "description": "GPU IDs to use, e.g. '0' or '0,1' (default: all available)"},
+        "gpu_ids": {
+            "type": "string",
+            "description": "GPU IDs to use, e.g. '0' or '0,1' (default: all available)",
+        },
         "timeout": {"type": "integer", "description": "Maximum runtime in seconds (default: 3600)"},
     },
     required=["command"],
@@ -246,6 +277,7 @@ def create_conda_env(
     channels: list[str] | None = None,
 ) -> str:
     import shutil
+
     if not shutil.which("conda") and not shutil.which("mamba"):
         return (
             "Conda not found. Install Miniforge:\n"
@@ -254,7 +286,7 @@ def create_conda_env(
 
     conda = "mamba" if shutil.which("mamba") else "conda"
     channels_flags: list[str] = []
-    for ch in (channels or ["conda-forge"]):
+    for ch in channels or ["conda-forge"]:
         channels_flags += ["-c", ch]
 
     cmd = [conda, "create", "-n", name, f"python={python_version}", "-y"] + channels_flags
@@ -278,8 +310,14 @@ def list_conda_envs() -> str:
     name="run_benchmark",
     description="Run a GPU or CPU benchmark to verify hardware performance.",
     properties={
-        "target": {"type": "string", "description": "Benchmark target: 'gpu', 'cpu', or 'memory' (default: gpu)"},
-        "duration": {"type": "integer", "description": "Benchmark duration in seconds (default: 10)"},
+        "target": {
+            "type": "string",
+            "description": "Benchmark target: 'gpu', 'cpu', or 'memory' (default: gpu)",
+        },
+        "duration": {
+            "type": "integer",
+            "description": "Benchmark duration in seconds (default: 10)",
+        },
     },
     required=[],
 )
@@ -386,46 +424,48 @@ except Exception as e:
 def install_hpc_software(software: str) -> str:
     installers: dict[str, list[str]] = {
         "gromacs": [
-            "bash", "-c",
+            "bash",
+            "-c",
             "apt-get install -y gromacs gromacs-cuda 2>/dev/null || "
-            "apt-get install -y gromacs && echo 'Installed CPU-only GROMACS (no CUDA package found)'"
+            "apt-get install -y gromacs && echo 'Installed CPU-only GROMACS (no CUDA package found)'",
         ],
         "lammps": ["apt-get", "install", "-y", "lammps"],
         "openfoam": [
-            "bash", "-c",
+            "bash",
+            "-c",
             "curl -s https://dl.openfoam.com/add-debian-repo.sh | bash && "
-            "apt-get install -y openfoam2312-default"
+            "apt-get install -y openfoam2312-default",
         ],
         "miniforge": [
-            "bash", "-c",
+            "bash",
+            "-c",
             "curl -fsSL https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh "
             "-o /tmp/miniforge.sh && bash /tmp/miniforge.sh -b -p /opt/conda && "
             "ln -sf /opt/conda/bin/conda /usr/local/bin/conda && "
             "ln -sf /opt/conda/bin/mamba /usr/local/bin/mamba && "
-            "echo 'Miniforge installed at /opt/conda'"
+            "echo 'Miniforge installed at /opt/conda'",
         ],
         "rapids": [
-            "bash", "-c",
+            "bash",
+            "-c",
             "pip install --upgrade 'cudf-cu12' 'cuml-cu12' 'cugraph-cu12' "
-            "--extra-index-url=https://pypi.nvidia.com"
+            "--extra-index-url=https://pypi.nvidia.com",
         ],
         "pytorch-cuda": [
-            "bash", "-c",
+            "bash",
+            "-c",
             "pip install torch torchvision torchaudio "
-            "--index-url https://download.pytorch.org/whl/cu124"
+            "--index-url https://download.pytorch.org/whl/cu124",
         ],
         "jax-cuda": [
-            "bash", "-c",
-            "pip install 'jax[cuda12]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
+            "bash",
+            "-c",
+            "pip install 'jax[cuda12]' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html",
         ],
     }
 
     installer = installers.get(software.lower())
     if not installer:
-        return (
-            f"Unknown software '{software}'.\n"
-            f"Available: {', '.join(installers.keys())}"
-        )
+        return f"Unknown software '{software}'.\nAvailable: {', '.join(installers.keys())}"
 
-    import shlex
     return _run(installer, timeout=600)

@@ -1,4 +1,5 @@
 """LLM-callable tool wrappers for the job scheduler."""
+
 from __future__ import annotations
 
 import json
@@ -10,13 +11,14 @@ from .registry import tool
 if TYPE_CHECKING:
     from llmos.scheduler import JobQueue
 
-_queue: "JobQueue | None" = None
+_queue: JobQueue | None = None
 
 
-def _get_queue() -> "JobQueue":
+def _get_queue() -> JobQueue:
     global _queue
     if _queue is None:
         from llmos.scheduler import JobQueue
+
         _queue = JobQueue()
     return _queue
 
@@ -235,7 +237,7 @@ def get_job_stats() -> str:
     stats = queue.get_stats()
     counts = stats.get("counts_by_status", {})
     lines = [
-        f"Job queue statistics:",
+        "Job queue statistics:",
         f"  db: {stats.get('db_path', 'unknown')}",
         f"  total jobs: {stats.get('total', 0)}",
     ]
