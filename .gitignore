@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# LLM-OS runtime data
+llmos.db
+*.sqlite3
+*.log
+
+# Secrets / keys
+*.pem
+*.key
+*.env
+.env*
+
+# Packer build artifacts
+packer_cache/
+output-*/
+*.box
+*.ovf
+*.vmdk
+*.qcow2
+*.ova
+
+# Reports / plots (user-generated)
+# (intentionally not gitignored — users may want to track these)
