@@ -23,6 +23,28 @@ _PROMPT_STYLE = Style.from_dict({"prompt": "bold ansicyan"})
 _HISTORY_FILE = os.path.expanduser("~/.config/llmos/history")
 
 
+def _detect_gpu_brief() -> str:
+    """Return a one-line GPU summary for the system prompt."""
+    import subprocess
+    try:
+        r = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=5
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            gpus = [l.strip() for l in r.stdout.strip().splitlines()]
+            return "NVIDIA: " + " | ".join(gpus)
+    except Exception:
+        pass
+    try:
+        r = subprocess.run(["rocm-smi", "--showproductname"], capture_output=True, text=True, timeout=5)
+        if r.returncode == 0 and r.stdout.strip():
+            return "AMD ROCm: " + r.stdout.strip().splitlines()[0]
+    except Exception:
+        pass
+    return "No GPU detected (CPU-only mode)"
+
+
 def _build_system_message(config: Config) -> dict:
     try:
         hostname = os.uname().nodename
@@ -37,11 +59,14 @@ def _build_system_message(config: Config) -> dict:
     except Exception:
         os_release = platform.platform()
 
+    gpu_info = _detect_gpu_brief()
+
     content = config.system_prompt.format(
         hostname=hostname,
         user=user,
         cwd=cwd,
         os_release=os_release,
+        gpu_info=gpu_info,
     )
     return {"role": "system", "content": content}
 

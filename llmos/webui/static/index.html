@@ -18,8 +18,12 @@
     <span id="clock"></span>
   </div>
   <div id="topbar-right">
+    <span id="gpu-widget" class="gpu-widget hidden" title="GPU utilization" onclick="quickSend('show GPU status and utilization')">
+      <span class="gpu-icon">&#x1F9EA;</span>
+      <span id="gpu-bar-container"><span id="gpu-bar"></span></span>
+      <span id="gpu-label">GPU</span>
+    </span>
     <span class="topbar-icon" title="Network">&#x1F4F6;</span>
-    <span class="topbar-icon" title="Sound">&#x1F50A;</span>
     <span id="model-badge" title="Active model">llama3.2</span>
     <span class="topbar-icon" id="settings-btn" title="Settings" onclick="toggleSettings()">&#x2699;&#xFE0F;</span>
   </div>
@@ -81,11 +85,12 @@
         <button id="send-btn" onclick="sendMessage()">Send</button>
       </div>
       <div id="quick-actions">
-        <button class="qa-btn" onclick="quickSend('show system information')">System Info</button>
-        <button class="qa-btn" onclick="quickSend('list files in home directory')">Home Files</button>
-        <button class="qa-btn" onclick="quickSend('show disk usage')">Disk Usage</button>
-        <button class="qa-btn" onclick="quickSend('list running processes')">Processes</button>
-        <button class="qa-btn" onclick="quickSend('show network interfaces')">Network</button>
+        <button class="qa-btn" onclick="quickSend('show system information and GPU status')">System Info</button>
+        <button class="qa-btn" onclick="quickSend('show GPU info and CUDA capabilities')">GPU Info</button>
+        <button class="qa-btn" onclick="quickSend('run a GPU benchmark and show performance')">GPU Benchmark</button>
+        <button class="qa-btn" onclick="quickSend('show all installed scientific computing software')">Sci Stack</button>
+        <button class="qa-btn" onclick="quickSend('start JupyterLab on port 8888')">Jupyter</button>
+        <button class="qa-btn" onclick="quickSend('list running processes and GPU processes')">Processes</button>
         <button class="qa-btn" onclick="clearHistory()">Clear Chat</button>
       </div>
     </div>

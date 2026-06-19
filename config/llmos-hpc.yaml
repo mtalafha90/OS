@@ -1,0 +1,18 @@
+# LLM-OS HPC configuration
+# Optimized for scientific computational simulation with GPU acceleration.
+# Use with: llmos --config /etc/llmos/llmos-hpc.yaml
+
+ollama_url: "http://localhost:11434"
+
+# Larger models are better for complex scientific reasoning
+# Options: llama3.2 (fast), mistral (balanced), qwen2.5:14b (scientific)
+model: "qwen2.5:14b"
+
+# Large history for multi-step simulation workflows
+max_history: 100
+
+# Always show tool calls (important for scientific reproducibility)
+show_tool_calls: true
+
+# Longer timeout for complex GPU computations
+request_timeout: 300.0

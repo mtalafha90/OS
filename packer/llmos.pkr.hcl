@@ -184,7 +184,15 @@ build {
     timeout          = "60m"
   }
 
-  # 4. Pre-pull the model inside the image (optional — can skip to reduce image size)
+  # 4. Install scientific computing stack + CUDA toolkit (no GPU driver yet — installs at first boot)
+  provisioner "shell" {
+    environment_vars = ["DEBIAN_FRONTEND=noninteractive"]
+    execute_command  = "echo '${var.ssh_password}' | sudo -S bash -c '{{.Vars}} bash {{.Path}}'"
+    script           = "${path.root}/scripts/provision-scientific.sh"
+    timeout          = "90m"
+  }
+
+  # 5. Pre-pull the model inside the image (optional — can skip to reduce image size)
   provisioner "shell" {
     environment_vars = ["LLMOS_MODEL=${var.ollama_model}"]
     execute_command  = "echo '${var.ssh_password}' | sudo -S bash -c '{{.Vars}} bash {{.Path}}'"

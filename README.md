@@ -47,6 +47,55 @@ The LLM receives a **system prompt** describing its role as the OS, along with *
 
 ---
 
+## GPU & Scientific Computing
+
+LLM-OS is purpose-built for **scientific computational simulation** with full GPU passthrough to the virtual machine. The LLM can monitor, configure, and use the GPU directly.
+
+### GPU Support
+
+| Vendor | Driver | Compute API | Status |
+|---|---|---|---|
+| NVIDIA | 565-open | CUDA 12.6 + cuDNN 9 | ✅ Full support |
+| AMD | ROCm 6.2 | HIP / OpenCL | ✅ Full support |
+| Intel | i915 | OpenCL | ⚠️ Display only |
+
+**GPU is auto-detected on first boot** — the VM installs the correct driver automatically.
+
+### Scientific Computing Stack
+
+Pre-installed in the VM image:
+
+| Category | Software |
+|---|---|
+| Deep Learning | PyTorch 2.3 (CUDA), JAX (CUDA), TensorFlow |
+| GPU Computing | CuPy (GPU NumPy), RAPIDS (cuDF, cuML, cuGraph) |
+| Simulation | GROMACS (MD), LAMMPS (MD), OpenFOAM (CFD) |
+| Parallel | OpenMPI + CUDA-aware MPI, mpi4py, Dask |
+| Data | NumPy, SciPy, Pandas, HDF5, NetCDF4, FFTW |
+| Visualization | ParaView, Matplotlib, Plotly, nglview |
+| Interactive | JupyterLab + GPU dashboard extension |
+| Environment | Miniforge (conda/mamba) |
+
+### What you can ask the OS
+
+```
+llmos> run a GPU benchmark and show TFLOPS
+
+llmos> set up a GROMACS molecular dynamics simulation of protein folding
+
+llmos> write a PyTorch training loop that uses all available GPUs with DDP
+
+llmos> monitor GPU utilization for 30 seconds while the simulation runs
+
+llmos> install RAPIDS and run a GPU-accelerated k-means on my dataset.csv
+
+llmos> start JupyterLab on port 8888
+
+llmos> show which processes are using the GPU and how much VRAM
+```
+
+---
+
 ## Interface
 
 LLM-OS ships with **two interfaces** — choose based on your environment:
@@ -181,6 +230,45 @@ qemu-system-x86_64 \
   -enable-kvm \
   -display sdl        # or -nographic for headless
 ```
+
+### GPU Passthrough (recommended for scientific computing)
+
+GPU passthrough gives the VM **direct, bare-metal access** to the physical GPU — no virtualization overhead, full CUDA/ROCm performance.
+
+**Step 1 — Configure the host (one-time)**
+```bash
+# Run on the physical host machine (not inside the VM)
+sudo bash scripts/setup-gpu-passthrough.sh
+
+# Preview what it will do first:
+make gpu-passthrough-dry
+```
+
+This script:
+1. Detects your GPU (NVIDIA or AMD) and its PCI address
+2. Enables IOMMU in GRUB (`intel_iommu=on` or `amd_iommu=on`)
+3. Binds the GPU to the `vfio-pci` driver (prevents host OS from using it)
+4. Writes a ready-to-use `scripts/run-vm-gpu.sh` launch command
+
+**Step 2 — Reboot the host**
+```bash
+sudo reboot
+```
+
+**Step 3 — Build the VM (if not done)**
+```bash
+make vm-qemu
+```
+
+**Step 4 — Launch with GPU**
+```bash
+make vm-run-gpu
+# or: bash scripts/run-vm-gpu.sh
+```
+
+**Step 5 — On first boot**, LLM-OS auto-detects the GPU and installs the correct driver (NVIDIA or AMD ROCm). No manual driver installation needed.
+
+> **VirtualBox note**: VirtualBox does not support CUDA/compute GPU passthrough. Use QEMU/KVM for scientific computing.
 
 ### Proxmox / libvirt
 

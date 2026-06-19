@@ -472,6 +472,44 @@ button:hover { background: var(--orange-dark); }
 .hidden { display: none !important; }
 .dim { color: var(--text-dim); }
 
+/* ── GPU Widget ──────────────────────────────────────────────────────── */
+.gpu-widget {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: background 0.15s;
+  font-size: 12px;
+}
+.gpu-widget:hover { background: rgba(255,255,255,0.12); }
+
+.gpu-icon { font-size: 13px; }
+
+#gpu-bar-container {
+  width: 40px;
+  height: 6px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 3px;
+  overflow: hidden;
+}
+#gpu-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #28C840, #FFBD2E, #FF5F57);
+  border-radius: 3px;
+  transition: width 1s ease;
+}
+
+#gpu-label {
+  color: var(--text-dim);
+  font-size: 11px;
+  min-width: 32px;
+}
+
 /* ── Wallpaper grid pattern ──────────────────────────────────────────── */
 #desktop::before {
   content: '';

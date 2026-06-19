@@ -43,9 +43,17 @@ enable_services() {
     systemctl enable --now llmos.service    || log "Warning: could not enable llmos"
 }
 
+install_gpu_drivers() {
+    if [[ -x /usr/lib/llmos/install-gpu-drivers.sh ]]; then
+        log "Detecting GPU and installing drivers…"
+        bash /usr/lib/llmos/install-gpu-drivers.sh || log "WARNING: GPU driver installation failed — check /var/log/llmos-firstboot.log"
+    fi
+}
+
 main() {
     log "=== LLM-OS First Boot ==="
     wait_for_network
+    install_gpu_drivers
     configure_llmos_user
     pull_default_model
     enable_services

@@ -53,13 +53,31 @@ vm-qemu: ## Build QEMU/KVM QCOW2 only
 vm-fast: ## Build VM without pre-pulling model (faster build, needs internet on first boot)
 	SKIP_MODEL_PULL=1 bash build/build-vm.sh all
 
+vm-run-gpu: ## Launch the QEMU VM with GPU passthrough (run setup-gpu-passthrough.sh first)
+	@[[ -f scripts/run-vm-gpu.sh ]] || { echo "Run first: sudo bash scripts/setup-gpu-passthrough.sh"; exit 1; }
+	bash scripts/run-vm-gpu.sh
+
+vm-run: ## Launch the QEMU VM without GPU (for testing)
+	qemu-system-x86_64 \
+	  -name "LLM-OS" -machine q35,accel=kvm -cpu host \
+	  -smp 4 -m 8G \
+	  -drive file=dist/qemu/llmos.qcow2,format=qcow2,if=virtio \
+	  -net nic,model=virtio -net user,hostfwd=tcp::8080-:8080,hostfwd=tcp::2222-:22 \
+	  -display sdl
+
+gpu-passthrough: ## Configure host GPU passthrough for QEMU (requires root)
+	sudo bash scripts/setup-gpu-passthrough.sh
+
+gpu-passthrough-dry: ## Preview GPU passthrough changes without applying
+	sudo bash scripts/setup-gpu-passthrough.sh --dry-run
+
 vm-deps: ## Install Packer and VM build dependencies
 	@echo "Installing Packer…"
 	@wget -qO /tmp/packer.zip https://releases.hashicorp.com/packer/1.11.2/packer_1.11.2_linux_amd64.zip
 	@unzip -o /tmp/packer.zip -d /usr/local/bin/ && chmod +x /usr/local/bin/packer
-	@echo "Installing QEMU…"
-	@sudo apt-get install -y qemu-kvm bridge-utils
-	@echo "VirtualBox: download from https://www.virtualbox.org/wiki/Downloads"
+	@echo "Installing QEMU + KVM…"
+	@sudo apt-get install -y qemu-kvm qemu-utils bridge-utils cpu-checker ovmf
+	@echo "VirtualBox (optional): https://www.virtualbox.org/wiki/Downloads"
 
 packer-init: ## Initialize Packer plugins
 	cd packer && packer init llmos.pkr.hcl

@@ -26,6 +26,26 @@ _config: Config = Config()
 _conversation_history: list[dict] = []
 
 
+def _detect_gpu_brief() -> str:
+    import subprocess
+    try:
+        r = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=5
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return "NVIDIA: " + " | ".join(l.strip() for l in r.stdout.strip().splitlines())
+    except Exception:
+        pass
+    try:
+        r = subprocess.run(["rocm-smi", "--showproductname"], capture_output=True, text=True, timeout=5)
+        if r.returncode == 0 and r.stdout.strip():
+            return "AMD ROCm: " + r.stdout.strip().splitlines()[0]
+    except Exception:
+        pass
+    return "No GPU detected"
+
+
 def _system_message() -> dict:
     try:
         hostname = os.uname().nodename
@@ -40,10 +60,13 @@ def _system_message() -> dict:
     except Exception:
         os_release = platform.platform()
 
+    gpu_info = _detect_gpu_brief()
+
     return {
         "role": "system",
         "content": _config.system_prompt.format(
-            hostname=hostname, user=user, cwd=cwd, os_release=os_release
+            hostname=hostname, user=user, cwd=cwd,
+            os_release=os_release, gpu_info=gpu_info,
         ),
     }
 
@@ -51,6 +74,53 @@ def _system_message() -> dict:
 @app.get("/", response_class=HTMLResponse)
 async def index() -> FileResponse:
     return FileResponse(str(STATIC_DIR / "index.html"))
+
+
+@app.get("/api/gpu")
+async def gpu_status() -> dict:
+    """Return GPU utilization for the top-bar widget."""
+    import subprocess
+    result: dict = {"available": False, "vendor": "none", "gpus": []}
+    try:
+        r = subprocess.run(
+            ["nvidia-smi", "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            result["available"] = True
+            result["vendor"] = "nvidia"
+            for line in r.stdout.strip().splitlines():
+                idx, name, gpu_pct, mem_used, mem_total, temp = [x.strip() for x in line.split(",")]
+                result["gpus"].append({
+                    "index": idx, "name": name,
+                    "util_pct": int(gpu_pct), "mem_used": int(mem_used),
+                    "mem_total": int(mem_total), "temp": int(temp),
+                })
+            return result
+    except Exception:
+        pass
+    try:
+        r = subprocess.run(["rocm-smi", "--showuse", "--showmemuse", "--json"],
+                           capture_output=True, text=True, timeout=5)
+        if r.returncode == 0:
+            import json as _json
+            data = _json.loads(r.stdout)
+            result["available"] = True
+            result["vendor"] = "amd"
+            for key, info in data.items():
+                if key.startswith("card"):
+                    result["gpus"].append({
+                        "index": key,
+                        "name": info.get("Card series", key),
+                        "util_pct": int(info.get("GPU use (%)", 0)),
+                        "mem_used": 0,
+                        "mem_total": 0,
+                        "temp": int(float(info.get("Temperature (Sensor edge) (°C)", 0))),
+                    })
+    except Exception:
+        pass
+    return result
 
 
 @app.get("/api/status")

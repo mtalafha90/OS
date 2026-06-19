@@ -352,6 +352,29 @@ function updateClock() {
   document.getElementById("clock").textContent = `${day}  ${time}`;
 }
 
+// ── GPU Widget ────────────────────────────────────────────────────────────────
+async function pollGPU() {
+  try {
+    const data = await fetch("/api/gpu").then(r => r.json());
+    const widget = document.getElementById("gpu-widget");
+    const bar    = document.getElementById("gpu-bar");
+    const label  = document.getElementById("gpu-label");
+
+    if (data.available && data.gpus.length > 0) {
+      widget.classList.remove("hidden");
+      const gpu = data.gpus[0];
+      const pct = gpu.util_pct;
+      bar.style.width = `${pct}%`;
+      label.textContent = `${pct}%`;
+      widget.title = `${gpu.name} | ${pct}% util | ${gpu.mem_used}/${gpu.mem_total}MB | ${gpu.temp}°C`;
+    } else {
+      widget.classList.add("hidden");
+    }
+  } catch (e) {
+    // silently skip if endpoint unreachable
+  }
+}
+
 // ── Startup ───────────────────────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", () => {
   connectWS();
@@ -365,4 +388,8 @@ window.addEventListener("DOMContentLoaded", () => {
       document.getElementById("model-badge").textContent = data.model;
     })
     .catch(() => {});
+
+  // GPU widget polling
+  pollGPU();
+  setInterval(pollGPU, 5000);
 });
