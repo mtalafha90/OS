@@ -69,7 +69,7 @@ def dns_lookup(hostname: str, record_type: str = "A") -> str:
     except FileNotFoundError:
         try:
             addrs = socket.getaddrinfo(hostname, None)
-            ips = sorted({a[4][0] for a in addrs})
+            ips = sorted({str(a[4][0]) for a in addrs})
             return "\n".join(ips)
         except socket.gaierror as e:
             return f"DNS lookup failed: {e}"

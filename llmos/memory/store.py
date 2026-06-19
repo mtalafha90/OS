@@ -215,7 +215,7 @@ class _ChromaBackend:
         except Exception:
             return []
 
-        out = []
+        out: list[dict] = []
         if not results["ids"] or not results["ids"][0]:
             return out
         for i, mid in enumerate(results["ids"][0]):
@@ -294,6 +294,7 @@ class MemoryStore:
     def __init__(self, store_dir: Path | None = None):
         self._dir = Path(store_dir) if store_dir else _STORE_DIR
         chromadb = _try_import_chromadb()
+        self._backend: _ChromaBackend | _SQLiteBackend
         if chromadb is not None:
             self._backend = _ChromaBackend(self._dir)
             self._backend_name = "chromadb"

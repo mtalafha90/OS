@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 
 try:
-    import yaml
+    import yaml  # type: ignore[import-untyped]
 
     _YAML_AVAILABLE = True
 except ImportError:

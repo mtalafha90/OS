@@ -10,7 +10,7 @@ from pathlib import Path
 from .registry import tool
 
 
-def _fmt_size(n: int) -> str:
+def _fmt_size(n: float) -> str:
     for unit in ("B", "K", "M", "G", "T"):
         if n < 1024:
             return f"{n:.0f}{unit}"

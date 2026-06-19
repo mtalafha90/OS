@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .registry import tool
 
+if TYPE_CHECKING:
+    from llmos.voice import VoiceInterface
+
 # Module-level singleton — created lazily so import doesn't trigger model load.
-_voice: VoiceInterface | None = None  # noqa: F821
+_voice: VoiceInterface | None = None
 
 
-def _get_voice() -> VoiceInterface:  # noqa: F821
+def _get_voice() -> VoiceInterface:
     global _voice
     if _voice is None:
         from llmos.voice import VoiceInterface
