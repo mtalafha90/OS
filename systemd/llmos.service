@@ -1,0 +1,22 @@
+[Unit]
+Description=LLM-OS Interactive Shell (auto-login)
+After=ollama.service
+Requires=ollama.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/llmos
+Restart=on-failure
+RestartSec=2
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+User=llmos
+Group=llmos
+
+[Install]
+WantedBy=multi-user.target

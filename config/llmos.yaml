@@ -1,0 +1,17 @@
+# LLM-OS default configuration
+# Place this file at ~/.config/llmos/config.yaml to customize
+
+# Ollama server address
+ollama_url: "http://localhost:11434"
+
+# Default model to use (must be pulled via `ollama pull <model>`)
+model: "llama3.2"
+
+# How many message pairs to keep in conversation context
+max_history: 50
+
+# Show tool calls and their output while the LLM works
+show_tool_calls: true
+
+# HTTP request timeout for Ollama (seconds)
+request_timeout: 120.0

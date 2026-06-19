@@ -1,0 +1,15 @@
+[Unit]
+Description=LLM-OS First-Boot Setup
+After=network-online.target ollama.service
+Wants=network-online.target
+ConditionPathExists=!/var/lib/llmos/.firstboot-done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/llmos/first-boot.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

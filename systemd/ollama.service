@@ -1,0 +1,26 @@
+[Unit]
+Description=Ollama LLM Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ollama
+Group=ollama
+ExecStart=/usr/local/bin/ollama serve
+Restart=on-failure
+RestartSec=5
+Environment="HOME=/usr/share/ollama"
+Environment="OLLAMA_MODELS=/usr/share/ollama/.ollama/models"
+
+# Resource limits
+LimitNOFILE=524288
+LimitNPROC=524288
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/usr/share/ollama
+
+[Install]
+WantedBy=multi-user.target
