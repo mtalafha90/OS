@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Lint & type-check ────────────────────────────────────────────────────────
+  lint:
+    name: Lint & type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dev deps
+        run: pip install ruff mypy types-pyyaml types-psutil
+
+      - name: ruff lint
+        run: ruff check llmos/
+
+      - name: ruff format check
+        run: ruff format --check llmos/
+
+      - name: mypy
+        run: mypy llmos/ --ignore-missing-imports
+
+  # ── Tests ────────────────────────────────────────────────────────────────────
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package + test dependencies
+        run: |
+          pip install -e ".[web]" \
+            pytest pytest-cov \
+            httpx psutil
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v \
+            --cov=llmos \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            -x
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: matrix.python-version == '3.11'
+        with:
+          files: coverage.xml
+        continue-on-error: true
+
+  # ── Validate Packer template ─────────────────────────────────────────────────
+  packer-validate:
+    name: Validate Packer template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-packer@main
+        with:
+          version: latest
+
+      - name: packer init
+        run: packer init packer/llmos.pkr.hcl
+
+      - name: packer validate
+        run: |
+          packer validate \
+            -var-file=packer/variables.pkrvars.hcl \
+            packer/llmos.pkr.hcl
+
+  # ── Package build smoke-test ─────────────────────────────────────────────────
+  build:
+    name: Package build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Build sdist and wheel
+        run: |
+          pip install build
+          python -m build
+
+      - name: Verify wheel installs cleanly
+        run: |
+          pip install dist/*.whl
+          python -c "import llmos; print('llmos imported OK')"
+          llmos --help || true

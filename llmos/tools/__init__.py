@@ -12,6 +12,7 @@ _OPTIONAL_TOOLS = [
     "container_tools",
     "report_tools",
     "visualization_tools",
+    "plugin_tools",
 ]
 
 for _mod in _OPTIONAL_TOOLS:
