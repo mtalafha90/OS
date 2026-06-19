@@ -120,25 +120,99 @@ This installs all dependencies, sets up Ollama as a systemd service, and configu
 
 ---
 
-## Building the ISO
+## Running in a Virtual Machine
 
-Requires a Debian/Ubuntu build host with `live-build` installed.
+> **This is the primary way to use LLM-OS.** The build system produces ready-to-import VM images for VirtualBox and QEMU/KVM.
+
+### Prerequisites
+
+| Tool | Purpose | Install |
+|---|---|---|
+| [Packer ≥ 1.10](https://developer.hashicorp.com/packer/install) | Builds the VM image | `make vm-deps` |
+| [VirtualBox ≥ 7.0](https://www.virtualbox.org/wiki/Downloads) | Runs the OVA (Windows/Mac/Linux) | Download from site |
+| QEMU + KVM | Runs QCOW2 (Linux) | `sudo apt install qemu-kvm` |
+
+### Build the VM image
 
 ```bash
-# Install build dependencies
-make iso-deps
+# Initialize Packer plugins (once)
+make packer-init
 
-# Build (takes 15-30 minutes, requires ~10 GB free space)
-make iso
+# Build VirtualBox OVA + QEMU QCOW2 (includes llama3.2, ~25 GB build, ~5 GB output)
+make vm
+
+# Or build just one format
+make vm-virtualbox    # → dist/virtualbox/llmos.ova
+make vm-qemu          # → dist/qemu/llmos.qcow2
+
+# Faster build (skips model pre-pull — VM needs internet on first boot)
+make vm-fast
 ```
 
-The ISO is written to `dist/llmos-1.0.0-amd64.iso`. Flash to USB:
+Build time: ~30–45 minutes (most time is pulling the Ubuntu ISO + llama3.2 model).
+
+---
+
+### VirtualBox
 
 ```bash
+# Import via GUI:
+#   File → Import Appliance → select dist/virtualbox/llmos.ova
+
+# Or via command line:
+VBoxManage import dist/virtualbox/llmos.ova --vsys 0 --vmname "LLM-OS"
+VBoxManage startvm "LLM-OS"
+```
+
+Recommended settings (already configured in the OVA):
+- RAM: **4 GB** minimum (8 GB recommended for larger models)
+- CPU: 2 cores
+- Storage: 20 GB
+- Network: NAT (internet access for package installation)
+
+### QEMU / KVM
+
+```bash
+# Start VM with port 8080 forwarded to host
+qemu-system-x86_64 \
+  -m 4G -smp 2 \
+  -drive file=dist/qemu/llmos.qcow2,format=qcow2 \
+  -net nic -net user,hostfwd=tcp::8080-:8080,hostfwd=tcp::2222-:22 \
+  -enable-kvm \
+  -display sdl        # or -nographic for headless
+```
+
+### Proxmox / libvirt
+
+```bash
+# Copy image to libvirt storage
+sudo cp dist/qemu/llmos.qcow2 /var/lib/libvirt/images/
+
+# Create VM (libvirt/virt-manager): point to the QCOW2 as the disk
+virt-install --name llmos --memory 4096 --vcpus 2 \
+  --disk /var/lib/libvirt/images/llmos.qcow2 \
+  --import --os-variant ubuntu24.04
+```
+
+---
+
+### First boot
+
+1. **Login**: `llmos` / `llmos` (change with `passwd`)
+2. **Web UI** launches automatically at `http://<vm-ip>:8080`
+3. If the model wasn't pre-pulled, it downloads on first boot (~2 GB, needs internet)
+
+> **Find the VM's IP**: run `ip addr` in the VM terminal, or check your VM manager's network info.
+
+---
+
+### Building a live ISO (USB/bare-metal)
+
+```bash
+make iso-deps   # install live-build
+make iso        # → dist/llmos-1.0.0-amd64.iso
 sudo dd if=dist/llmos-1.0.0-amd64.iso of=/dev/sdX bs=4M status=progress
 ```
-
-> **First boot**: The system downloads the `llama3.2` model (~2 GB). Internet access is required on first boot.
 
 ---
 

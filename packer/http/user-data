@@ -1,0 +1,73 @@
+#cloud-config
+autoinstall:
+  version: 1
+
+  # ── Locale & keyboard ───────────────────────────────────────────────────────
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+
+  # ── Network ─────────────────────────────────────────────────────────────────
+  network:
+    network:
+      version: 2
+      ethernets:
+        enp0s3:
+          dhcp4: true
+          optional: true
+        ens3:
+          dhcp4: true
+          optional: true
+        eth0:
+          dhcp4: true
+          optional: true
+
+  # ── Storage: single root partition on entire disk ───────────────────────────
+  storage:
+    layout:
+      name: direct
+
+  # ── User account ─────────────────────────────────────────────────────────────
+  identity:
+    hostname: llmos
+    username: llmos
+    # Password: llmos
+    # Re-generate with: openssl passwd -6 llmos
+    password: "$6$VVVoHL2ZILrAZiV3$nCdnnBltqNtg6mTiYB0dSjJ1.zkNI/QKOkhMGZPrxcRHpI/E2xfT/jRhoCCGndDQFi6YVFW7V3SLXyfzKaq6A."
+
+  # ── SSH ─────────────────────────────────────────────────────────────────────
+  ssh:
+    install-server: true
+    allow-pw: true
+
+  # ── Base packages (installed during OS setup) ────────────────────────────────
+  packages:
+    - python3
+    - python3-pip
+    - python3-venv
+    - curl
+    - wget
+    - git
+    - net-tools
+    - openssh-server
+    - ca-certificates
+    - gnupg
+    - lsb-release
+
+  # ── Disable automatic updates (we manage them via the LLM) ──────────────────
+  updates: security
+
+  # ── Post-install tweaks ──────────────────────────────────────────────────────
+  late-commands:
+    # Allow llmos user to sudo without password (needed for system operations)
+    - echo "llmos ALL=(ALL) NOPASSWD:ALL" > /target/etc/sudoers.d/llmos
+    - chmod 440 /target/etc/sudoers.d/llmos
+    # Disable needrestart interactive prompts
+    - curtin in-target --target=/target -- sed -i "s/#\$nrconf{restart}/\$nrconf{restart}/" /etc/needrestart/needrestart.conf || true
+    - curtin in-target --target=/target -- bash -c "echo '\$nrconf{restart} = '\''a'\'';' >> /etc/needrestart/needrestart.conf" || true
+
+  # ── cloud-init user-data section (runs after reboot) ─────────────────────────
+  user-data:
+    disable_root: false
+    package_update: false
+    package_upgrade: false

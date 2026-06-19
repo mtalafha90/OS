@@ -39,6 +39,31 @@ docker-run: ## Run LLM-OS in Docker (Ollama on host)
 docker-run-bundled: ## Run LLM-OS with Ollama bundled inside container
 	docker run -it --rm $(DOCKER) --with-ollama
 
+# ── VM Images (Packer) ─────────────────────────────────────────────────────────
+
+vm: ## Build both VirtualBox OVA and QEMU QCOW2 (requires Packer)
+	bash build/build-vm.sh all
+
+vm-virtualbox: ## Build VirtualBox OVA only
+	bash build/build-vm.sh virtualbox
+
+vm-qemu: ## Build QEMU/KVM QCOW2 only
+	bash build/build-vm.sh qemu
+
+vm-fast: ## Build VM without pre-pulling model (faster build, needs internet on first boot)
+	SKIP_MODEL_PULL=1 bash build/build-vm.sh all
+
+vm-deps: ## Install Packer and VM build dependencies
+	@echo "Installing Packer…"
+	@wget -qO /tmp/packer.zip https://releases.hashicorp.com/packer/1.11.2/packer_1.11.2_linux_amd64.zip
+	@unzip -o /tmp/packer.zip -d /usr/local/bin/ && chmod +x /usr/local/bin/packer
+	@echo "Installing QEMU…"
+	@sudo apt-get install -y qemu-kvm bridge-utils
+	@echo "VirtualBox: download from https://www.virtualbox.org/wiki/Downloads"
+
+packer-init: ## Initialize Packer plugins
+	cd packer && packer init llmos.pkr.hcl
+
 # ── ISO ────────────────────────────────────────────────────────────────────────
 
 iso: ## Build the live ISO (requires live-build, must run as root)
