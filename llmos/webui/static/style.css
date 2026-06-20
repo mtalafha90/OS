@@ -134,6 +134,68 @@ html, body {
   position: fixed;
   inset: 34px 0 60px 0;
   overflow: hidden;
+  /* Multi-layer background: deep dark + subtle radial vignette */
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 50%, rgba(119,41,83,0.18) 0%, transparent 70%),
+    radial-gradient(ellipse 100% 80% at 20% 10%, rgba(233,84,32,0.10) 0%, transparent 55%),
+    linear-gradient(155deg, #2C001E 0%, #1A0010 40%, #0D0020 100%);
+}
+
+/* Dot-grid texture overlay */
+#desktop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(233,84,32,0.13) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Desktop background logo ─────────────────────────────────────────── */
+#desktop-bg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+  z-index: 0;
+  animation: bg-pulse 8s ease-in-out infinite;
+}
+
+@keyframes bg-pulse {
+  0%, 100% { opacity: 0.18; }
+  50%       { opacity: 0.26; }
+}
+
+#desktop-logo-svg {
+  width: 280px;
+  height: 280px;
+  filter: drop-shadow(0 0 32px rgba(233,84,32,0.45))
+          drop-shadow(0 0 80px rgba(119,41,83,0.35));
+}
+
+#desktop-logo-label {
+  font-family: 'Ubuntu', 'Segoe UI', system-ui, sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 10px;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, #E95420 0%, #772953 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+#desktop-logo-sub {
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
 }
 
 /* ── Windows ─────────────────────────────────────────────────────────── */
@@ -151,6 +213,7 @@ html, body {
   flex-direction: column;
   overflow: hidden;
   transition: box-shadow 0.15s;
+  z-index: 10;
 }
 .window:focus-within { box-shadow: 0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px var(--orange); }
 

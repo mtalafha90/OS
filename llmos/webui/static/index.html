@@ -67,6 +67,70 @@
 <!-- ── Desktop ───────────────────────────────────────────────────────── -->
 <main id="desktop">
 
+  <!-- Background logo watermark -->
+  <div id="desktop-bg" aria-hidden="true">
+    <svg id="desktop-logo-svg" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="lg-orange-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stop-color="#E95420"/>
+          <stop offset="100%" stop-color="#772953"/>
+        </linearGradient>
+        <radialGradient id="lg-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="#E95420" stop-opacity="0.35"/>
+          <stop offset="70%"  stop-color="#772953" stop-opacity="0.12"/>
+          <stop offset="100%" stop-color="#2C001E" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="f-glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Ambient glow behind the O -->
+      <ellipse cx="160" cy="165" rx="100" ry="90" fill="url(#lg-glow)"/>
+
+      <!-- Outer ring — slow clockwise spin -->
+      <g>
+        <animateTransform attributeName="transform" type="rotate"
+          from="0 160 160" to="360 160 160" dur="30s" repeatCount="indefinite"/>
+        <circle cx="160" cy="160" r="148" fill="none"
+          stroke="url(#lg-orange-purple)" stroke-width="1"
+          stroke-dasharray="10 7" opacity="0.45"/>
+        <!-- Orbiting dot A -->
+        <circle cx="160" cy="12" r="5" fill="#E95420" opacity="0.9"/>
+      </g>
+
+      <!-- Middle ring — slow counter-clockwise -->
+      <g>
+        <animateTransform attributeName="transform" type="rotate"
+          from="360 160 160" to="0 160 160" dur="18s" repeatCount="indefinite"/>
+        <circle cx="160" cy="160" r="120" fill="none"
+          stroke="url(#lg-orange-purple)" stroke-width="1.5" opacity="0.3"/>
+        <!-- Orbiting dot B -->
+        <circle cx="160" cy="40" r="3.5" fill="#772953" opacity="0.9"/>
+        <circle cx="160" cy="280" r="3.5" fill="#E95420" opacity="0.7"/>
+      </g>
+
+      <!-- Inner accent ring -->
+      <circle cx="160" cy="160" r="93" fill="none"
+        stroke="url(#lg-orange-purple)" stroke-width="0.8" opacity="0.2"/>
+
+      <!-- Capital O -->
+      <text x="160" y="215"
+        text-anchor="middle"
+        font-family="Ubuntu, 'Segoe UI', system-ui, sans-serif"
+        font-size="158"
+        font-weight="900"
+        letter-spacing="-4"
+        fill="url(#lg-orange-purple)"
+        filter="url(#f-glow)"
+        opacity="0.92">O</text>
+    </svg>
+
+    <div id="desktop-logo-label">LLM-OS</div>
+    <div id="desktop-logo-sub">Natural Language Operating System</div>
+  </div>
+
   <!-- Main assistant window (always visible) -->
   <div class="window" id="win-assistant" data-app="assistant">
     <div class="window-titlebar" onmousedown="startDrag(event, 'win-assistant')">
