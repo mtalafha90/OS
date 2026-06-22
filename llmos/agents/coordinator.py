@@ -6,10 +6,10 @@ import json
 import threading
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Base Agent
 # ---------------------------------------------------------------------------
+
 
 class Agent:
     """LLM agent that interacts with Ollama using a role-specific system prompt."""
@@ -74,6 +74,7 @@ class Agent:
                         args = {}
                 try:
                     from llmos.tools.registry import dispatch_tool
+
                     result = dispatch_tool(name, args)
                 except Exception as exc:
                     result = f"Error executing {name}: {exc}"
@@ -121,7 +122,9 @@ class AgentCoordinator:
             role,
             f"You are a specialised {role} agent within LLM-OS. Respond accurately and concisely.",
         )
-        return Agent(name=role, role_description=description, config=self.config, ollama_client=self.ollama)
+        return Agent(
+            name=role, role_description=description, config=self.config, ollama_client=self.ollama
+        )
 
     def spawn_agent(self, role: str, task: str, context: str | None = None) -> str:
         return self._make_agent(role).run(task, context)
