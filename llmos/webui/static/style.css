@@ -37,9 +37,12 @@ html, body {
 /* ── Lock Screen ──────────────────────────────────────────────────────── */
 #lockscreen {
   position: fixed;
-  inset: 0;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 9999;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   background:
@@ -49,12 +52,19 @@ html, body {
 }
 #lockscreen.hidden { display: none; }
 
-#lock-bg-svg {
+/* Background SVG lives in its own absolute layer — never affects flex centering */
+#lock-bg-wrap {
   position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: bg-pulse 8s ease-in-out infinite;
+}
+#lock-bg-svg {
   width: min(70vmin, 420px);
   height: min(70vmin, 420px);
   opacity: 0.22;
-  animation: bg-pulse 8s ease-in-out infinite;
   filter: drop-shadow(0 0 40px rgba(233,84,32,0.5)) drop-shadow(0 0 100px rgba(119,41,83,0.4));
 }
 
@@ -64,7 +74,11 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 10px;
+  text-align: center;
+  /* pull out of absolute-SVG interference */
+  margin: auto;
 }
 
 #lock-time {

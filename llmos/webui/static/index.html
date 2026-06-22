@@ -66,7 +66,8 @@
 
 <!-- ── Lock Screen ────────────────────────────────────────────────────── -->
 <div id="lockscreen">
-  <svg id="lock-bg-svg" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <div id="lock-bg-wrap" aria-hidden="true">
+  <svg id="lock-bg-svg" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="ll-grad" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stop-color="#E95420"/>
@@ -94,6 +95,7 @@
       font-size="158" font-weight="900" letter-spacing="-4"
       fill="url(#ll-grad)" filter="url(#ll-glow)" opacity="0.9">O</text>
   </svg>
+  </div><!-- /lock-bg-wrap -->
   <div id="lock-panel">
     <div id="lock-time"></div>
     <div id="lock-date"></div>
