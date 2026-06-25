@@ -100,7 +100,7 @@ iso-run: ## Test kiosk ISO in QEMU (no KVM — safe for any host)
 	  -display sdl
 
 iso-deps: ## Install ISO build dependencies
-	sudo apt-get install -y live-build squashfs-tools xorriso isolinux syslinux-efi
+	sudo apt-get install -y live-build squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools
 
 # ── Quality ────────────────────────────────────────────────────────────────────
 

@@ -62,6 +62,7 @@ init_build() {
         --mirror-chroot "http://archive.ubuntu.com/ubuntu/" \
         --apt-indices false \
         --apt-source-archives false \
+        --bootloaders "grub-pc grub-efi-amd64" \
         --bootappend-live "boot=live components quiet splash" \
         --iso-application "LLM-OS" \
         --iso-publisher "LLM-OS Project" \
