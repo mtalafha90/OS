@@ -68,15 +68,26 @@ init_build() {
         --iso-volume "LLMOS_1_0"
 
     # Use GRUB only — syslinux theme packages were dropped from Ubuntu 24.04.
-    # Write to the generated config file directly; --bootloaders is not
+    # Write directly to the generated config file; --bootloaders is not
     # recognised in all live-build versions.
     local binary_cfg="$BUILD_DIR/config/binary"
+
     if grep -q "^LB_BOOTLOADERS=" "$binary_cfg" 2>/dev/null; then
         sed -i 's/^LB_BOOTLOADERS=.*/LB_BOOTLOADERS="grub-pc grub-efi-amd64"/' "$binary_cfg"
     else
         echo 'LB_BOOTLOADERS="grub-pc grub-efi-amd64"' >> "$binary_cfg"
     fi
     ok "Bootloaders set to grub-pc + grub-efi-amd64."
+
+    # Use plain ISO (not iso-hybrid) so live-build never calls isohybrid.
+    # isohybrid is only needed for USB-stick boot; QEMU/VirtualBox work fine
+    # with a regular ISO.  Users who need USB boot can run isohybrid manually.
+    if grep -q "^LB_BINARY_IMAGES=" "$binary_cfg" 2>/dev/null; then
+        sed -i 's/^LB_BINARY_IMAGES=.*/LB_BINARY_IMAGES="iso"/' "$binary_cfg"
+    else
+        echo 'LB_BINARY_IMAGES="iso"' >> "$binary_cfg"
+    fi
+    ok "Binary image type set to iso (skips isohybrid step)."
 }
 
 write_package_list() {
@@ -336,8 +347,13 @@ build_iso() {
     lb build 2>&1 | tee "$REPO_DIR/build-iso.log"
 
     mkdir -p "$OUTPUT_DIR"
-    local iso_src="$BUILD_DIR/live-image-${ARCH}.hybrid.iso"
-    if [[ -f "$iso_src" ]]; then
+    local iso_src=""
+    for candidate in \
+        "$BUILD_DIR/live-image-${ARCH}.hybrid.iso" \
+        "$BUILD_DIR/live-image-${ARCH}.iso"; do
+        [[ -f "$candidate" ]] && { iso_src="$candidate"; break; }
+    done
+    if [[ -n "$iso_src" ]]; then
         mv "$iso_src" "$OUTPUT_DIR/$ISO_NAME"
         ok "ISO built: $OUTPUT_DIR/$ISO_NAME ($(du -sh "$OUTPUT_DIR/$ISO_NAME" | cut -f1))"
     else
@@ -383,19 +399,74 @@ print_summary() {
 }
 
 patch_livebuild_syslinux() {
-    # Ubuntu 24.04 dropped syslinux-themes-ubuntu-oneiric and gfxboot-theme-ubuntu.
-    # live-build's lb_binary_syslinux script still tries to install them and fails.
-    # Patch the script in-place (build already requires root) to skip those packages.
-    local script="/usr/lib/live/build/lb_binary_syslinux"
-    [[ -f "$script" ]] || return 0
-    if grep -q "syslinux-themes-ubuntu\|gfxboot-theme-ubuntu" "$script"; then
-        cp "$script" "${script}.bak"
-        sed -i \
-            -e '/syslinux-themes-ubuntu/d' \
-            -e '/gfxboot-theme-ubuntu/d' \
-            "$script"
-        ok "Patched lb_binary_syslinux to skip obsolete Ubuntu theme packages."
+    # Ubuntu 24.04 dropped the syslinux theme packages
+    # (syslinux-themes-ubuntu-*, gfxboot-theme-ubuntu) that lb_binary_syslinux
+    # still tries to apt-get install — which aborts the whole build.
+    #
+    # Fix in two parts:
+    #   1. Bypass lb_binary_syslinux (inject `exit 0`) so it never installs
+    #      those packages. As a side effect it no longer populates binary/isolinux/.
+    #   2. genisoimage is still invoked with `-b isolinux/isolinux.bin`, so we
+    #      supply that directory ourselves via config/includes.binary/isolinux/
+    #      (see setup_isolinux_includes) using isolinux.bin from the host.
+    #
+    # The ISO boots through GRUB; isolinux is present only to satisfy
+    # genisoimage's El Torito boot-catalog requirement.
+    local syslinux_script="/usr/lib/live/build/lb_binary_syslinux"
+    if [[ -f "$syslinux_script" ]]; then
+        grep -q "# LLMOS-PATCHED" "$syslinux_script" || {
+            cp "$syslinux_script" "${syslinux_script}.bak"
+            sed -i '2i # LLMOS-PATCHED: syslinux disabled (Ubuntu 24.04 dropped theme pkgs)\nexit 0' "$syslinux_script"
+            ok "Disabled lb_binary_syslinux stage."
+        }
     fi
+
+    # Install host-side tools: isolinux provides isolinux.bin, syslinux-utils
+    # provides isohybrid, syslinux-common provides the *.c32 modules.
+    log "Installing host syslinux tools (isolinux, syslinux-utils, syslinux-common)…"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        isolinux syslinux-utils syslinux-common 2>/dev/null \
+        && ok "Host syslinux tools ready." \
+        || warn "Could not install syslinux tools — genisoimage may fail."
+}
+
+setup_isolinux_includes() {
+    # Provide binary/isolinux/ via config/includes.binary/ (copied into the
+    # binary tree before genisoimage runs). lb_binary_syslinux is bypassed, so
+    # without this genisoimage aborts: "can't find boot catalog directory".
+    log "Staging isolinux boot catalog via config/includes.binary…"
+    local isodir="$BUILD_DIR/config/includes.binary/isolinux"
+    mkdir -p "$isodir"
+
+    local isobin=""
+    for f in /usr/lib/ISOLINUX/isolinux.bin \
+             /usr/lib/syslinux/isolinux.bin \
+             /usr/share/syslinux/isolinux.bin; do
+        [[ -f "$f" ]] && { isobin="$f"; break; }
+    done
+    [[ -n "$isobin" ]] || err "isolinux.bin not found. Run: make iso-deps"
+    cp "$isobin" "$isodir/"
+
+    # Copy the *.c32 modules referenced by isolinux.cfg (best-effort).
+    for f in ldlinux.c32 libcom32.c32 libutil.c32 menu.c32 vesamenu.c32; do
+        for d in /usr/lib/syslinux/modules/bios /usr/share/syslinux; do
+            [[ -f "$d/$f" ]] && { cp "$d/$f" "$isodir/"; break; }
+        done
+    done
+
+    # Minimal config. GRUB performs the real boot; this satisfies genisoimage
+    # and provides a basic BIOS/isolinux fallback menu.
+    cat > "$isodir/isolinux.cfg" << 'CFG'
+UI menu.c32
+MENU TITLE LLM-OS
+TIMEOUT 30
+DEFAULT live
+LABEL live
+  MENU LABEL Start LLM-OS
+  KERNEL /live/vmlinuz
+  APPEND initrd=/live/initrd boot=live components quiet splash
+CFG
+    ok "isolinux boot catalog staged."
 }
 
 main() {
@@ -404,6 +475,7 @@ main() {
     check_deps
     patch_livebuild_syslinux
     init_build
+    setup_isolinux_includes
     write_package_list
     write_firefox_pin
     copy_overlay
