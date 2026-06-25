@@ -43,9 +43,22 @@ check_deps() {
     done
     if [[ ${#missing[@]} -gt 0 ]]; then
         err "Missing tools: ${missing[*]}
-Run:  sudo apt-get install live-build squashfs-tools xorriso isolinux syslinux-efi"
+Run:  sudo apt-get install live-build squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools"
     fi
     ok "Build dependencies present."
+}
+
+patch_livebuild_syslinux() {
+    # Ubuntu 24.04 dropped all syslinux theme packages. Rather than trying to
+    # remove individual package names (whose exact format varies by live-build
+    # version), disable the entire lb_binary_syslinux stage by injecting
+    # `exit 0` right after the shebang. The ISO will boot via GRUB instead.
+    local script="/usr/lib/live/build/lb_binary_syslinux"
+    [[ -f "$script" ]] || return 0
+    grep -q "# LLMOS-PATCHED" "$script" && { ok "lb_binary_syslinux already patched."; return 0; }
+    cp "$script" "${script}.bak"
+    sed -i '1a # LLMOS-PATCHED: syslinux disabled — theme packages removed from Ubuntu 24.04\nexit 0' "$script"
+    ok "Disabled lb_binary_syslinux (ISO will boot via GRUB)."
 }
 
 init_build() {
@@ -220,14 +233,14 @@ BASHRC
 #!/bin/sh
 IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 echo ""
-echo "  ╔══════════════════════════════════════════════╗"
+echo "  ╔════════════════════════════════════════════╗"
 echo "  ║             L L M - O S                     ║"
 echo "  ║     Natural Language Operating System        ║"
-echo "  ╠══════════════════════════════════════════════╣"
+echo "  ╠════════════════════════════════════════════╣"
 echo "  ║  Credentials:  llmos / llmos                 ║"
 echo "  ║  Web UI:       http://${IP:-<vm-ip>}:8080    ║"
 echo "  ║  Change pass:  passwd                        ║"
-echo "  ╚══════════════════════════════════════════════╝"
+echo "  ╚════════════════════════════════════════════╝"
 echo ""
 MOTD
     chmod +x "$overlay/etc/update-motd.d/10-llmos"
@@ -355,13 +368,13 @@ print_summary() {
     echo "  ISO:  $iso"
     [[ -f "$iso" ]] && echo "  Size: $(du -sh "$iso" | cut -f1)"
     echo
-    echo "  ── VirtualBox ─────────────────────────────────────────"
+    echo "  ── VirtualBox ───────────────────────────────────────────"
     echo "  1. File → New → Name: LLM-OS, Type: Linux, Version: Ubuntu 64-bit"
     echo "  2. RAM: 4096 MB+, CPU: 2+ cores"
     echo "  3. Storage → Add → choose $ISO_NAME"
     echo "  4. Start VM"
     echo
-    echo "  ── QEMU/KVM ───────────────────────────────────────────"
+    echo "  ── QEMU/KVM ─────────────────────────────────────────────"
     echo "  qemu-system-x86_64 \\"
     echo "    -m 4G -smp 2 \\"
     echo "    -cdrom $iso \\"
@@ -369,33 +382,17 @@ print_summary() {
     echo "    -enable-kvm -display sdl"
     echo
     if [[ "$MODE" == "kiosk" ]]; then
-        echo "  ── Kiosk Mode ─────────────────────────────────────────"
+        echo "  ── Kiosk Mode ───────────────────────────────────────────"
         echo "  The VM boots directly to the LLM-OS web UI."
         echo "  Default lock screen password: llmos"
     else
-        echo "  ── Server Mode ────────────────────────────────────────"
+        echo "  ── Server Mode ──────────────────────────────────────────"
         echo "  Open http://localhost:8080 in your browser after boot."
     fi
     echo
     echo "  Note: First boot pulls model '$DEFAULT_MODEL' (~2 GB)."
     echo "        Ensure internet access on first boot."
     echo
-}
-
-patch_livebuild_syslinux() {
-    # Ubuntu 24.04 dropped syslinux-themes-ubuntu-oneiric and gfxboot-theme-ubuntu.
-    # live-build's lb_binary_syslinux script still tries to install them and fails.
-    # Patch the script in-place (build already requires root) to skip those packages.
-    local script="/usr/lib/live/build/lb_binary_syslinux"
-    [[ -f "$script" ]] || return 0
-    if grep -q "syslinux-themes-ubuntu\|gfxboot-theme-ubuntu" "$script"; then
-        cp "$script" "${script}.bak"
-        sed -i \
-            -e '/syslinux-themes-ubuntu/d' \
-            -e '/gfxboot-theme-ubuntu/d' \
-            "$script"
-        ok "Patched lb_binary_syslinux to skip obsolete Ubuntu theme packages."
-    fi
 }
 
 main() {
