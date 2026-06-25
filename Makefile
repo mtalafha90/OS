@@ -7,7 +7,7 @@ DOCKER  ?= llmos:latest
 help:   ## Show this help
 	@awk 'BEGIN{FS=":.*##"} /^[a-zA-Z_-]+:.*##/{printf "  \033[36m%-16s\033[0m %s\n",$$1,$$2}' $(MAKEFILE_LIST)
 
-# ── Development ──────────────────────────────────────────────────────────────────────
+# ── Development ────────────────────────────────────────────────────────────────
 
 install: ## Install LLM-OS on this system (requires Python 3.11+)
 	pip3 install --break-system-packages -e ".[web]"
@@ -24,7 +24,7 @@ dev-verbose: ## Run with tool call output
 cmd: ## Run a single command: make cmd PROMPT="list files in /tmp"
 	python3 -m llmos.main --cmd "$(PROMPT)"
 
-# ── Docker ───────────────────────────────────────────────────────────────────────────
+# ── Docker ─────────────────────────────────────────────────────────────────────
 
 docker-build: ## Build the Docker image
 	docker build -t $(DOCKER) -f docker/Dockerfile .
@@ -82,7 +82,7 @@ vm-deps: ## Install Packer and VM build dependencies
 packer-init: ## Initialize Packer plugins
 	cd packer && packer init llmos.pkr.hcl
 
-# ── ISO ───────────────────────────────────────────────────────────────────────────
+# ── ISO ────────────────────────────────────────────────────────────────────────
 
 iso: ## Build live ISO — kiosk mode (X11 + browser, boots to web UI)
 	sudo LLMOS_MODEL=$(MODEL) LLMOS_BUILD_DIR=/tmp/llmos-build bash build/build-iso.sh dist kiosk

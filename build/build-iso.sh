@@ -6,8 +6,7 @@
 #   server            — text-only, smaller ISO; access web UI from host browser
 #
 # Requirements (install with: make iso-deps):
-#   sudo apt-get install live-build squashfs-tools xorriso \
-#       grub-pc-bin grub-efi-amd64-bin mtools isolinux syslinux-utils syslinux-common
+#   sudo apt-get install live-build squashfs-tools xorriso isolinux syslinux-efi
 #
 # Usage:
 #   sudo bash build/build-iso.sh [OUTPUT_DIR] [kiosk|server]
@@ -44,32 +43,9 @@ check_deps() {
     done
     if [[ ${#missing[@]} -gt 0 ]]; then
         err "Missing tools: ${missing[*]}
-Run:  sudo apt-get install live-build squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools isolinux syslinux-utils syslinux-common"
+Run:  sudo apt-get install live-build squashfs-tools xorriso isolinux syslinux-efi"
     fi
     ok "Build dependencies present."
-}
-
-patch_livebuild_syslinux() {
-    # Ubuntu 24.04 dropped all syslinux theme packages. Bypass the entire
-    # lb_binary_syslinux stage by injecting exit 0 after the shebang so no
-    # theme-package apt-get calls are made. The ISO boots via GRUB.
-    # A binary hook (0075) re-creates the minimal isolinux/ catalog that
-    # genisoimage still needs, and we install host-side syslinux tools here.
-    local script="/usr/lib/live/build/lb_binary_syslinux"
-    if [[ -f "$script" ]]; then
-        grep -q "# LLMOS-PATCHED" "$script" || {
-            cp "$script" "${script}.bak"
-            sed -i '1a # LLMOS-PATCHED: syslinux disabled (Ubuntu 24.04 dropped theme pkgs)\nexit 0' "$script"
-            ok "Disabled lb_binary_syslinux stage."
-        }
-    fi
-
-    # Install host-side tools that genisoimage / isohybrid still need.
-    log "Installing host syslinux tools (isolinux, syslinux-utils)…"
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        isolinux syslinux-utils syslinux-common 2>/dev/null \
-        && ok "Host syslinux tools ready." \
-        || warn "Could not install syslinux tools — build may fail at isohybrid step."
 }
 
 init_build() {
@@ -107,6 +83,7 @@ write_package_list() {
     log "Writing package lists (mode: $MODE)…"
     mkdir -p "$BUILD_DIR/config/package-lists"
 
+    # Base packages for all modes
     cat > "$BUILD_DIR/config/package-lists/llmos-base.list.chroot" << 'EOF'
 python3
 python3-pip
@@ -136,6 +113,7 @@ ca-certificates
 gnupg
 EOF
 
+    # Kiosk-specific packages (X11 + browser)
     if [[ "$MODE" == "kiosk" ]]; then
         cat > "$BUILD_DIR/config/package-lists/llmos-kiosk.list.chroot" << 'EOF'
 xorg
@@ -152,6 +130,7 @@ EOF
 }
 
 write_firefox_pin() {
+    # Prioritise the Mozilla team PPA so apt-get installs the real deb, not a snap stub
     if [[ "$MODE" == "kiosk" ]]; then
         mkdir -p "$BUILD_DIR/config/includes.chroot/etc/apt/preferences.d"
         cat > "$BUILD_DIR/config/includes.chroot/etc/apt/preferences.d/mozilla-firefox" << 'EOF'
@@ -169,8 +148,10 @@ copy_overlay() {
     mkdir -p "$overlay/etc/systemd/system"
     mkdir -p "$overlay/usr/lib/llmos"
 
+    # Default config
     cp "$REPO_DIR/config/llmos.yaml" "$overlay/etc/llmos/llmos.yaml"
 
+    # Scripts
     cp "$REPO_DIR/scripts/first-boot.sh" "$overlay/usr/lib/llmos/first-boot.sh"
     chmod +x "$overlay/usr/lib/llmos/first-boot.sh"
 
@@ -179,10 +160,12 @@ copy_overlay() {
         chmod +x "$overlay/usr/lib/llmos/kiosk-start.sh"
     fi
 
+    # Systemd units
     cp "$REPO_DIR/systemd/ollama.service"           "$overlay/etc/systemd/system/"
     cp "$REPO_DIR/systemd/llmos-firstboot.service"  "$overlay/etc/systemd/system/"
     cp "$REPO_DIR/systemd/llmos-web.service"        "$overlay/etc/systemd/system/"
 
+    # Auto-login on tty1 (passwordless for llmos user — the web UI has its own lock screen)
     mkdir -p "$overlay/etc/systemd/system/getty@tty1.service.d"
     cat > "$overlay/etc/systemd/system/getty@tty1.service.d/autologin.conf" << 'GETTY'
 [Service]
@@ -190,10 +173,12 @@ ExecStart=
 ExecStart=-/sbin/agetty --autologin llmos --noclear %I $TERM
 GETTY
 
+    # llmos user home skeleton
     local skel="$overlay/etc/skel-llmos"
     mkdir -p "$skel"
 
     if [[ "$MODE" == "kiosk" ]]; then
+        # .xinitrc: minimal WM + kiosk
         cat > "$skel/.xinitrc" << 'XINITRC'
 #!/bin/bash
 openbox &
@@ -201,6 +186,7 @@ exec /usr/lib/llmos/kiosk-start.sh
 XINITRC
         chmod +x "$skel/.xinitrc"
 
+        # .bash_profile: auto-start X on tty1 login
         cat > "$skel/.bash_profile" << 'BASHPROFILE'
 [[ -f ~/.bashrc ]] && . ~/.bashrc
 if [[ -z "${DISPLAY:-}" && "$(tty)" == /dev/tty1 ]]; then
@@ -209,6 +195,7 @@ fi
 BASHPROFILE
     fi
 
+    # .bashrc: MOTD + web UI fallback for server mode
     cat > "$skel/.bashrc" << 'BASHRC'
 export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
 export LLMOS_MODEL="${LLMOS_MODEL:-llama3.2}"
@@ -227,19 +214,20 @@ if [[ $- == *i* ]]; then
 fi
 BASHRC
 
+    # MOTD
     mkdir -p "$overlay/etc/update-motd.d"
     cat > "$overlay/etc/update-motd.d/10-llmos" << 'MOTD'
 #!/bin/sh
 IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 echo ""
-echo "  ╔════════════════════════════════════════════╗"
+echo "  ╔══════════════════════════════════════════════╗"
 echo "  ║             L L M - O S                     ║"
 echo "  ║     Natural Language Operating System        ║"
-echo "  ╠════════════════════════════════════════════╣"
+echo "  ╠══════════════════════════════════════════════╣"
 echo "  ║  Credentials:  llmos / llmos                 ║"
 echo "  ║  Web UI:       http://${IP:-<vm-ip>}:8080    ║"
 echo "  ║  Change pass:  passwd                        ║"
-echo "  ╚════════════════════════════════════════════╝"
+echo "  ╚══════════════════════════════════════════════╝"
 echo ""
 MOTD
     chmod +x "$overlay/etc/update-motd.d/10-llmos"
@@ -281,6 +269,7 @@ echo "[hook] Installing Firefox via Mozilla PPA…"
 add-apt-repository -y ppa:mozillateam/ppa
 apt-get update -qq
 apt-get install -y --no-install-recommends firefox
+# Remove snap stub if it exists
 apt-get remove -y firefox-snap 2>/dev/null || true
 echo "[hook] Firefox OK."
 HOOK
@@ -312,30 +301,18 @@ if ! id llmos &>/dev/null; then
 fi
 echo "llmos:llmos" | chpasswd
 HOME_DIR="/home/llmos"
+
+# Apply skeleton files
 if [[ -d /etc/skel-llmos ]]; then
     cp -rn /etc/skel-llmos/. "$HOME_DIR/"
 fi
+
 chown -R llmos:llmos "$HOME_DIR"
 echo "[hook] User llmos ready."
 HOOK
     chmod +x "$hooks/0065-create-user.hook.chroot"
 
-    # Hook 0070: Enable systemd services
-    cat > "$hooks/0070-enable-services.hook.chroot" << 'HOOK'
-#!/bin/bash
-set -euo pipefail
-echo "[hook] Enabling services…"
-systemctl enable ollama.service          || true
-systemctl enable llmos-web.service       || true
-systemctl enable llmos-firstboot.service || true
-systemctl enable getty@tty1.service      || true
-chmod -x /etc/update-motd.d/10-help-text 2>/dev/null || true
-chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
-echo "[hook] Services enabled."
-HOOK
-    chmod +x "$hooks/0070-enable-services.hook.chroot"
-
-    # Hook 0075: Set up isolinux boot catalog (binary stage, runs in binary/ dir).
+    # Hook 0075: Set up isolinux boot catalog (binary stage, runs in binary/ dir)
     # lb_binary_syslinux is bypassed to avoid missing Ubuntu theme packages;
     # genisoimage still requires an isolinux/ directory to exist.
     cat > "$hooks/0075-setup-isolinux.hook.binary" << 'HOOK'
@@ -343,6 +320,7 @@ HOOK
 echo "[hook] Creating minimal isolinux boot catalog…"
 mkdir -p isolinux
 
+# Find isolinux.bin on the build host
 ISOBIN=""
 for f in /usr/lib/ISOLINUX/isolinux.bin \
           /usr/lib/syslinux/isolinux.bin \
@@ -350,23 +328,18 @@ for f in /usr/lib/ISOLINUX/isolinux.bin \
     [[ -f "$f" ]] && { ISOBIN="$f"; break; }
 done
 if [[ -z "$ISOBIN" ]]; then
-    echo "[hook] ERROR: isolinux.bin not found. Run: sudo apt-get install isolinux"
+    echo "[hook] ERROR: isolinux.bin not found. Install 'isolinux' on the build host."
     exit 1
 fi
 cp "$ISOBIN" isolinux/
 
-# ldlinux.c32 required by syslinux >= 5
+# Copy ldlinux.c32 (required by syslinux >= 5)
 for f in /usr/lib/syslinux/modules/bios/ldlinux.c32 \
           /usr/share/syslinux/ldlinux.c32; do
     [[ -f "$f" ]] && { cp "$f" isolinux/; break; }
 done
 
-# menu.c32 for the text menu UI
-for f in /usr/lib/syslinux/modules/bios/menu.c32 \
-          /usr/share/syslinux/menu.c32; do
-    [[ -f "$f" ]] && { cp "$f" isolinux/; break; }
-done
-
+# Minimal isolinux.cfg (GRUB handles actual booting; this just satisfies genisoimage)
 [[ -f isolinux/isolinux.cfg ]] || cat > isolinux/isolinux.cfg << 'CFG'
 UI menu.c32
 MENU TITLE LLM-OS Boot Menu
@@ -381,6 +354,23 @@ CFG
 echo "[hook] isolinux boot catalog ready."
 HOOK
     chmod +x "$hooks/0075-setup-isolinux.hook.binary"
+
+    # Hook 0070: Enable systemd services
+    cat > "$hooks/0070-enable-services.hook.chroot" << 'HOOK'
+#!/bin/bash
+set -euo pipefail
+echo "[hook] Enabling services…"
+systemctl enable ollama.service          || true
+systemctl enable llmos-web.service       || true
+systemctl enable llmos-firstboot.service || true
+# Disable default getty@tty1 override (replaced by autologin)
+systemctl enable getty@tty1.service      || true
+# Suppress noisy MOTD entries
+chmod -x /etc/update-motd.d/10-help-text 2>/dev/null || true
+chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
+echo "[hook] Services enabled."
+HOOK
+    chmod +x "$hooks/0070-enable-services.hook.chroot"
 }
 
 build_iso() {
@@ -392,7 +382,7 @@ build_iso() {
     local iso_src="$BUILD_DIR/live-image-${ARCH}.hybrid.iso"
     if [[ -f "$iso_src" ]]; then
         mv "$iso_src" "$OUTPUT_DIR/$ISO_NAME"
-        ok "ISO built: $OUTPUT_DIR/$ISO_NAME ($(du -sh \"$OUTPUT_DIR/$ISO_NAME\" | cut -f1))"
+        ok "ISO built: $OUTPUT_DIR/$ISO_NAME ($(du -sh "$OUTPUT_DIR/$ISO_NAME" | cut -f1))"
     else
         err "ISO not found after build. Check $REPO_DIR/build-iso.log"
     fi
@@ -406,33 +396,56 @@ print_summary() {
     echo "╚══════════════════════════════════════════════════════════╝"
     echo
     echo "  ISO:  $iso"
-    [[ -f "$iso" ]] && echo "  Size: $(du -sh \"$iso\" | cut -f1)"
+    [[ -f "$iso" ]] && echo "  Size: $(du -sh "$iso" | cut -f1)"
     echo
-    echo "  ── VirtualBox ───────────────────────────────────────────"
+    echo "  ── VirtualBox ─────────────────────────────────────────"
     echo "  1. File → New → Name: LLM-OS, Type: Linux, Version: Ubuntu 64-bit"
     echo "  2. RAM: 4096 MB+, CPU: 2+ cores"
     echo "  3. Storage → Add → choose $ISO_NAME"
     echo "  4. Start VM"
     echo
-    echo "  ── QEMU/KVM ─────────────────────────────────────────────"
-    echo "  qemu-system-x86_64 \\\\"
-    echo "    -m 4G -smp 2 \\\\"
-    echo "    -cdrom $iso \\\\"
-    echo "    -net nic -net user,hostfwd=tcp::8080-:8080 \\\\"
+    echo "  ── QEMU/KVM ───────────────────────────────────────────"
+    echo "  qemu-system-x86_64 \\"
+    echo "    -m 4G -smp 2 \\"
+    echo "    -cdrom $iso \\"
+    echo "    -net nic -net user,hostfwd=tcp::8080-:8080 \\"
     echo "    -enable-kvm -display sdl"
     echo
     if [[ "$MODE" == "kiosk" ]]; then
-        echo "  ── Kiosk Mode ───────────────────────────────────────────"
+        echo "  ── Kiosk Mode ─────────────────────────────────────────"
         echo "  The VM boots directly to the LLM-OS web UI."
         echo "  Default lock screen password: llmos"
     else
-        echo "  ── Server Mode ──────────────────────────────────────────"
+        echo "  ── Server Mode ────────────────────────────────────────"
         echo "  Open http://localhost:8080 in your browser after boot."
     fi
     echo
     echo "  Note: First boot pulls model '$DEFAULT_MODEL' (~2 GB)."
     echo "        Ensure internet access on first boot."
     echo
+}
+
+patch_livebuild_syslinux() {
+    # Ubuntu 24.04 dropped all syslinux theme packages. Bypass the entire
+    # lb_binary_syslinux stage by injecting exit 0 after the shebang so no
+    # theme-package apt-get calls are made. The ISO boots via GRUB.
+    # A binary hook (0080) re-creates the minimal isolinux/ catalog that
+    # genisoimage still needs, and we install host-side syslinux tools here.
+    local script="/usr/lib/live/build/lb_binary_syslinux"
+    if [[ -f "$script" ]]; then
+        grep -q "# LLMOS-PATCHED" "$script" || {
+            cp "$script" "${script}.bak"
+            sed -i '1a # LLMOS-PATCHED: syslinux disabled (Ubuntu 24.04 dropped theme pkgs)\nexit 0' "$script"
+            ok "Disabled lb_binary_syslinux stage."
+        }
+    fi
+
+    # Install host-side tools that genisoimage / isohybrid still need.
+    log "Installing host syslinux tools (isolinux, syslinux-utils)…"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        isolinux syslinux-utils syslinux-common 2>/dev/null \
+        && ok "Host syslinux tools ready." \
+        || warn "Could not install syslinux tools — build may fail at isohybrid step."
 }
 
 main() {
