@@ -407,7 +407,19 @@ build_iso() {
     fi
 
     if [[ -n "$iso_src" ]]; then
-        mv "$iso_src" "$OUTPUT_DIR/$ISO_NAME"
+        # Remove any stale ISO first. A previous sudo build leaves it owned by
+        # root, mode 0444 — a plain `mv` would then prompt "overwrite, overriding
+        # mode 0444?" and, getting no answer in this non-interactive context,
+        # leave the OLD ISO in place. That makes every rebuild look like a no-op
+        # (you keep booting the same broken ISO).
+        rm -f "$OUTPUT_DIR/$ISO_NAME"
+        mv -f "$iso_src" "$OUTPUT_DIR/$ISO_NAME"
+        # Make it readable/writable by the invoking user so they can replace or
+        # delete it later without sudo.
+        chmod 0644 "$OUTPUT_DIR/$ISO_NAME"
+        if [[ -n "${SUDO_UID:-}" ]]; then
+            chown "${SUDO_UID}:${SUDO_GID:-$SUDO_UID}" "$OUTPUT_DIR/$ISO_NAME" 2>/dev/null || true
+        fi
         ok "ISO built: $OUTPUT_DIR/$ISO_NAME ($(du -sh "$OUTPUT_DIR/$ISO_NAME" | cut -f1))"
     else
         warn "No .iso found. Contents of $BUILD_DIR:"
