@@ -342,6 +342,37 @@ chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
 echo "[hook] Services enabled."
 HOOK
     chmod +x "$hooks/0070-enable-services.hook.chroot"
+
+    # Hook 0080 (binary): write isolinux.cfg pointing at the REAL kernel/initrd.
+    # Runs just before lb_binary_iso, with the binary tree already populated, so
+    # we can read the actual filenames live-build placed in binary/live/ instead
+    # of guessing them (a wrong initrd path is what hangs the isolinux menu).
+    cat > "$hooks/0080-isolinux-cfg.hook.binary" << 'HOOK'
+#!/bin/bash
+set -euo pipefail
+LIVE_DIR="binary/live"
+ISO_DIR="binary/isolinux"
+mkdir -p "$ISO_DIR"
+
+vmlinuz="$( [[ -d "$LIVE_DIR" ]] && cd "$LIVE_DIR" && ls vmlinuz* 2>/dev/null | head -1 || true )"
+initrd="$(  [[ -d "$LIVE_DIR" ]] && cd "$LIVE_DIR" && ls initrd*  2>/dev/null | head -1 || true )"
+vmlinuz="${vmlinuz:-vmlinuz}"
+initrd="${initrd:-initrd.img}"
+
+cat > "$ISO_DIR/isolinux.cfg" <<CFG
+UI menu.c32
+MENU TITLE LLM-OS
+PROMPT 0
+TIMEOUT 50
+DEFAULT live
+LABEL live
+  MENU LABEL Start LLM-OS
+  KERNEL /live/$vmlinuz
+  APPEND initrd=/live/$initrd boot=live components
+CFG
+echo "[hook] isolinux.cfg -> kernel=/live/$vmlinuz initrd=/live/$initrd"
+HOOK
+    chmod +x "$hooks/0080-isolinux-cfg.hook.binary"
 }
 
 build_iso() {
@@ -478,17 +509,21 @@ setup_isolinux_includes() {
         done
     done
 
-    # Minimal config. GRUB performs the real boot; this satisfies genisoimage
-    # and provides a basic BIOS/isolinux fallback menu.
+    # Fallback config using the conventional live-build names. The authoritative
+    # isolinux.cfg is written by the 0080 binary hook, which detects the real
+    # kernel and initrd filenames after they are staged (see write_chroot_hooks).
+    # The usual cause of a boot hang at the isolinux menu is a wrong initrd path
+    # (e.g. /live/initrd instead of /live/initrd.img).
     cat > "$isodir/isolinux.cfg" << 'CFG'
 UI menu.c32
 MENU TITLE LLM-OS
-TIMEOUT 30
+PROMPT 0
+TIMEOUT 50
 DEFAULT live
 LABEL live
   MENU LABEL Start LLM-OS
   KERNEL /live/vmlinuz
-  APPEND initrd=/live/initrd boot=live components quiet splash
+  APPEND initrd=/live/initrd.img boot=live components
 CFG
     ok "isolinux boot catalog staged."
 }
