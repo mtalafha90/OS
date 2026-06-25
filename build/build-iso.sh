@@ -17,7 +17,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="${1:-$REPO_DIR/dist}"
 MODE="${2:-kiosk}"        # kiosk | server
-BUILD_DIR="$REPO_DIR/.build"
+# Build dir must be on a filesystem mounted with dev+exec (not an external drive).
+# Override with: sudo LLMOS_BUILD_DIR=/tmp/llmos-build bash build/build-iso.sh
+BUILD_DIR="${LLMOS_BUILD_DIR:-/tmp/llmos-build}"
 DIST="noble"              # Ubuntu 24.04 LTS
 ARCH="amd64"
 VERSION="1.0.0"

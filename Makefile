@@ -85,10 +85,10 @@ packer-init: ## Initialize Packer plugins
 # ── ISO ────────────────────────────────────────────────────────────────────────
 
 iso: ## Build live ISO — kiosk mode (X11 + browser, boots to web UI)
-	sudo LLMOS_MODEL=$(MODEL) bash build/build-iso.sh dist kiosk
+	sudo LLMOS_MODEL=$(MODEL) LLMOS_BUILD_DIR=/tmp/llmos-build bash build/build-iso.sh dist kiosk
 
 iso-server: ## Build live ISO — server mode (text-only, smaller, ~800 MB)
-	sudo LLMOS_MODEL=$(MODEL) bash build/build-iso.sh dist server
+	sudo LLMOS_MODEL=$(MODEL) LLMOS_BUILD_DIR=/tmp/llmos-build bash build/build-iso.sh dist server
 
 iso-run: ## Test kiosk ISO in QEMU (no KVM — safe for any host)
 	@ISO=$$(ls -t dist/llmos-*-kiosk.iso 2>/dev/null | head -1); \
