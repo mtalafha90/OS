@@ -62,11 +62,21 @@ init_build() {
         --mirror-chroot "http://archive.ubuntu.com/ubuntu/" \
         --apt-indices false \
         --apt-source-archives false \
-        --bootloaders "grub-pc grub-efi-amd64" \
         --bootappend-live "boot=live components quiet splash" \
         --iso-application "LLM-OS" \
         --iso-publisher "LLM-OS Project" \
         --iso-volume "LLMOS_1_0"
+
+    # Use GRUB only — syslinux theme packages were dropped from Ubuntu 24.04.
+    # Write to the generated config file directly; --bootloaders is not
+    # recognised in all live-build versions.
+    local binary_cfg="$BUILD_DIR/config/binary"
+    if grep -q "^LB_BOOTLOADERS=" "$binary_cfg" 2>/dev/null; then
+        sed -i 's/^LB_BOOTLOADERS=.*/LB_BOOTLOADERS="grub-pc grub-efi-amd64"/' "$binary_cfg"
+    else
+        echo 'LB_BOOTLOADERS="grub-pc grub-efi-amd64"' >> "$binary_cfg"
+    fi
+    ok "Bootloaders set to grub-pc + grub-efi-amd64."
 }
 
 write_package_list() {
