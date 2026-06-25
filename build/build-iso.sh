@@ -382,10 +382,27 @@ print_summary() {
     echo
 }
 
+patch_livebuild_syslinux() {
+    # Ubuntu 24.04 dropped syslinux-themes-ubuntu-oneiric and gfxboot-theme-ubuntu.
+    # live-build's lb_binary_syslinux script still tries to install them and fails.
+    # Patch the script in-place (build already requires root) to skip those packages.
+    local script="/usr/lib/live/build/lb_binary_syslinux"
+    [[ -f "$script" ]] || return 0
+    if grep -q "syslinux-themes-ubuntu\|gfxboot-theme-ubuntu" "$script"; then
+        cp "$script" "${script}.bak"
+        sed -i \
+            -e '/syslinux-themes-ubuntu/d' \
+            -e '/gfxboot-theme-ubuntu/d' \
+            "$script"
+        ok "Patched lb_binary_syslinux to skip obsolete Ubuntu theme packages."
+    fi
+}
+
 main() {
     log "LLM-OS ISO Builder  |  mode=$MODE  |  model=$DEFAULT_MODEL"
     require_root
     check_deps
+    patch_livebuild_syslinux
     init_build
     write_package_list
     write_firefox_pin
