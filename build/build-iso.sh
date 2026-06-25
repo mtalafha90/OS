@@ -354,10 +354,33 @@ LIVE_DIR="binary/live"
 ISO_DIR="binary/isolinux"
 mkdir -p "$ISO_DIR"
 
-vmlinuz="$( [[ -d "$LIVE_DIR" ]] && cd "$LIVE_DIR" && ls vmlinuz* 2>/dev/null | head -1 || true )"
-initrd="$(  [[ -d "$LIVE_DIR" ]] && cd "$LIVE_DIR" && ls initrd*  2>/dev/null | head -1 || true )"
+echo "[hook] Contents of $LIVE_DIR:"
+ls -la "$LIVE_DIR" 2>/dev/null || echo "(directory missing — kernel may not have been staged)"
+
+# Prefer versioned filenames (vmlinuz-6.8.0-47-generic) over the plain symlinks
+# (vmlinuz, initrd.img). Isolinux doesn't always follow Rock Ridge symlinks
+# inside an ISO, so using the real on-disk filename is safer.
+vmlinuz="$(cd "$LIVE_DIR" && ls -1 vmlinuz-*    2>/dev/null | head -1 || true)"
+initrd="$( cd "$LIVE_DIR" && ls -1 initrd.img-* 2>/dev/null | head -1 || true)"
+
+# Fall back to the plain-name symlinks if no versioned file was found.
+[[ -z "$vmlinuz" ]] && vmlinuz="$(cd "$LIVE_DIR" && ls -1 vmlinuz    2>/dev/null | head -1 || true)"
+[[ -z "$initrd"  ]] && initrd="$( cd "$LIVE_DIR" && ls -1 initrd.img 2>/dev/null | head -1 || true)"
+
+# If the chosen name is still a symlink, resolve it to the actual filename.
+if [[ -L "$LIVE_DIR/$vmlinuz" ]]; then
+    _real="$(readlink -f "$LIVE_DIR/$vmlinuz" 2>/dev/null || true)"
+    [[ -n "$_real" ]] && vmlinuz="$(basename "$_real")"
+fi
+if [[ -L "$LIVE_DIR/$initrd" ]]; then
+    _real="$(readlink -f "$LIVE_DIR/$initrd" 2>/dev/null || true)"
+    [[ -n "$_real" ]] && initrd="$(basename "$_real")"
+fi
+
 vmlinuz="${vmlinuz:-vmlinuz}"
 initrd="${initrd:-initrd.img}"
+
+echo "[hook] isolinux.cfg -> kernel=/live/$vmlinuz  initrd=/live/$initrd"
 
 cat > "$ISO_DIR/isolinux.cfg" <<CFG
 UI menu.c32
@@ -370,7 +393,6 @@ LABEL live
   KERNEL /live/$vmlinuz
   APPEND initrd=/live/$initrd boot=live components
 CFG
-echo "[hook] isolinux.cfg -> kernel=/live/$vmlinuz initrd=/live/$initrd"
 HOOK
     chmod +x "$hooks/0080-isolinux-cfg.hook.binary"
 }
