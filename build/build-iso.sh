@@ -344,19 +344,40 @@ HOOK
 build_iso() {
     log "Starting live-build (this takes 15–40 minutes)…"
     cd "$BUILD_DIR"
+
+    # Capture lb build's exit code separately from tee's (pipefail would mask it).
+    local lb_exit=0
+    set +o pipefail
     lb build 2>&1 | tee "$REPO_DIR/build-iso.log"
+    lb_exit=${PIPESTATUS[0]}
+    set -o pipefail
+
+    if [[ $lb_exit -ne 0 ]]; then
+        err "lb build failed (exit $lb_exit). Check $REPO_DIR/build-iso.log"
+    fi
 
     mkdir -p "$OUTPUT_DIR"
     local iso_src=""
+
+    # Try the two standard live-build output names first.
     for candidate in \
         "$BUILD_DIR/live-image-${ARCH}.hybrid.iso" \
         "$BUILD_DIR/live-image-${ARCH}.iso"; do
         [[ -f "$candidate" ]] && { iso_src="$candidate"; break; }
     done
+
+    # Fallback: any .iso live-build may have named differently.
+    if [[ -z "$iso_src" ]]; then
+        log "Standard ISO paths not found; scanning $BUILD_DIR for any .iso…"
+        iso_src=$(find "$BUILD_DIR" -maxdepth 2 -name "*.iso" 2>/dev/null | head -1)
+    fi
+
     if [[ -n "$iso_src" ]]; then
         mv "$iso_src" "$OUTPUT_DIR/$ISO_NAME"
         ok "ISO built: $OUTPUT_DIR/$ISO_NAME ($(du -sh "$OUTPUT_DIR/$ISO_NAME" | cut -f1))"
     else
+        warn "No .iso found. Contents of $BUILD_DIR:"
+        ls -lh "$BUILD_DIR"/ 2>&1 | head -30 || true
         err "ISO not found after build. Check $REPO_DIR/build-iso.log"
     fi
 }
