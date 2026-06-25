@@ -16,6 +16,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="${1:-$REPO_DIR/dist}"
+# Resolve a relative OUTPUT_DIR against REPO_DIR now — build_iso() cd's into
+# BUILD_DIR, so a relative path would otherwise land under /tmp/llmos-build.
+[[ "$OUTPUT_DIR" = /* ]] || OUTPUT_DIR="$REPO_DIR/$OUTPUT_DIR"
 MODE="${2:-kiosk}"        # kiosk | server
 # Build dir must be on a filesystem mounted with dev+exec (not an external drive).
 # Override with: sudo LLMOS_BUILD_DIR=/tmp/llmos-build bash build/build-iso.sh
@@ -392,7 +395,7 @@ print_summary() {
     echo "  ISO:  $iso"
     [[ -f "$iso" ]] && echo "  Size: $(du -sh "$iso" | cut -f1)"
     echo
-    echo "  ── VirtualBox ─────────────────────────────────────────"
+    echo "  ── VirtualBox ──────────────────────────────────────────"
     echo "  1. File → New → Name: LLM-OS, Type: Linux, Version: Ubuntu 64-bit"
     echo "  2. RAM: 4096 MB+, CPU: 2+ cores"
     echo "  3. Storage → Add → choose $ISO_NAME"
