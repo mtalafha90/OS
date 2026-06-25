@@ -65,7 +65,7 @@ init_build() {
         --mirror-chroot "http://archive.ubuntu.com/ubuntu/" \
         --apt-indices false \
         --apt-source-archives false \
-        --bootappend-live "boot=live components quiet splash" \
+        --bootappend-live "boot=casper quiet splash ---" \
         --iso-application "LLM-OS" \
         --iso-publisher "LLM-OS Project" \
         --iso-volume "LLMOS_1_0"
@@ -350,37 +350,59 @@ HOOK
     cat > "$hooks/0080-isolinux-cfg.hook.binary" << 'HOOK'
 #!/bin/bash
 set -euo pipefail
-LIVE_DIR="binary/live"
 ISO_DIR="binary/isolinux"
 mkdir -p "$ISO_DIR"
 
-echo "[hook] Contents of $LIVE_DIR:"
-ls -la "$LIVE_DIR" 2>/dev/null || echo "(directory missing — kernel may not have been staged)"
+echo "[hook] Root of binary tree:"
+ls -la binary/ 2>/dev/null | head -20
 
-# Prefer versioned filenames (vmlinuz-6.8.0-47-generic) over the plain symlinks
-# (vmlinuz, initrd.img). Isolinux doesn't always follow Rock Ridge symlinks
-# inside an ISO, so using the real on-disk filename is safer.
-vmlinuz="$(cd "$LIVE_DIR" && ls -1 vmlinuz-*    2>/dev/null | head -1 || true)"
-initrd="$( cd "$LIVE_DIR" && ls -1 initrd.img-* 2>/dev/null | head -1 || true)"
+# Ubuntu live-build puts the kernel/initrd in binary/casper/ (Ubuntu's live
+# system uses casper, not live-boot). Debian uses binary/live/. Detect which.
+if [[ -d "binary/casper" ]]; then
+    LIVE_DIR="binary/casper"
+    LIVE_ISO_PATH="casper"
+    BOOT_PARAM="boot=casper quiet splash ---"
+    INITRD_GLOB="initrd*"          # casper names it: initrd or initrd.img
+elif [[ -d "binary/live" ]]; then
+    LIVE_DIR="binary/live"
+    LIVE_ISO_PATH="live"
+    BOOT_PARAM="boot=live components"
+    INITRD_GLOB="initrd.img*"
+else
+    echo "[hook] WARNING: neither binary/casper nor binary/live found — using casper defaults"
+    LIVE_DIR="binary/casper"
+    LIVE_ISO_PATH="casper"
+    BOOT_PARAM="boot=casper quiet splash ---"
+    INITRD_GLOB="initrd*"
+fi
 
-# Fall back to the plain-name symlinks if no versioned file was found.
-[[ -z "$vmlinuz" ]] && vmlinuz="$(cd "$LIVE_DIR" && ls -1 vmlinuz    2>/dev/null | head -1 || true)"
-[[ -z "$initrd"  ]] && initrd="$( cd "$LIVE_DIR" && ls -1 initrd.img 2>/dev/null | head -1 || true)"
+echo "[hook] Detected live dir: $LIVE_DIR"
+echo "[hook] Contents:"
+ls -la "$LIVE_DIR" 2>/dev/null || echo "(directory missing)"
 
-# If the chosen name is still a symlink, resolve it to the actual filename.
-if [[ -L "$LIVE_DIR/$vmlinuz" ]]; then
+# Prefer versioned filenames to avoid isolinux symlink-resolution issues.
+vmlinuz="$(cd "$LIVE_DIR" && ls -1 vmlinuz-* 2>/dev/null | head -1 || true)"
+initrd="$( cd "$LIVE_DIR" && ls -1 $INITRD_GLOB 2>/dev/null | head -1 || true)"
+
+# Fall back to plain-name symlinks.
+[[ -z "$vmlinuz" ]] && vmlinuz="$(cd "$LIVE_DIR" && ls -1 vmlinuz 2>/dev/null | head -1 || true)"
+[[ -z "$initrd"  ]] && initrd="$( cd "$LIVE_DIR" && ls -1 initrd  2>/dev/null | head -1 || true)"
+
+# Resolve any remaining symlink to its real filename.
+if [[ -n "$vmlinuz" && -L "$LIVE_DIR/$vmlinuz" ]]; then
     _real="$(readlink -f "$LIVE_DIR/$vmlinuz" 2>/dev/null || true)"
     [[ -n "$_real" ]] && vmlinuz="$(basename "$_real")"
 fi
-if [[ -L "$LIVE_DIR/$initrd" ]]; then
+if [[ -n "$initrd" && -L "$LIVE_DIR/$initrd" ]]; then
     _real="$(readlink -f "$LIVE_DIR/$initrd" 2>/dev/null || true)"
     [[ -n "$_real" ]] && initrd="$(basename "$_real")"
 fi
 
 vmlinuz="${vmlinuz:-vmlinuz}"
-initrd="${initrd:-initrd.img}"
+initrd="${initrd:-initrd}"
 
-echo "[hook] isolinux.cfg -> kernel=/live/$vmlinuz  initrd=/live/$initrd"
+echo "[hook] isolinux.cfg -> KERNEL=/$LIVE_ISO_PATH/$vmlinuz  initrd=/$LIVE_ISO_PATH/$initrd"
+echo "[hook] boot params: $BOOT_PARAM"
 
 cat > "$ISO_DIR/isolinux.cfg" <<CFG
 UI menu.c32
@@ -390,8 +412,8 @@ TIMEOUT 50
 DEFAULT live
 LABEL live
   MENU LABEL Start LLM-OS
-  KERNEL /live/$vmlinuz
-  APPEND initrd=/live/$initrd boot=live components
+  KERNEL /$LIVE_ISO_PATH/$vmlinuz
+  APPEND initrd=/$LIVE_ISO_PATH/$initrd $BOOT_PARAM
 CFG
 HOOK
     chmod +x "$hooks/0080-isolinux-cfg.hook.binary"
@@ -543,11 +565,9 @@ setup_isolinux_includes() {
         done
     done
 
-    # Fallback config using the conventional live-build names. The authoritative
-    # isolinux.cfg is written by the 0080 binary hook, which detects the real
-    # kernel and initrd filenames after they are staged (see write_chroot_hooks).
-    # The usual cause of a boot hang at the isolinux menu is a wrong initrd path
-    # (e.g. /live/initrd instead of /live/initrd.img).
+    # Fallback cfg — the 0080 binary hook overwrites this with the real detected
+    # paths. Using casper defaults since we target Ubuntu Noble (casper puts
+    # the kernel/initrd in /casper/, not /live/).
     cat > "$isodir/isolinux.cfg" << 'CFG'
 UI menu.c32
 MENU TITLE LLM-OS
@@ -556,8 +576,8 @@ TIMEOUT 50
 DEFAULT live
 LABEL live
   MENU LABEL Start LLM-OS
-  KERNEL /live/vmlinuz
-  APPEND initrd=/live/initrd.img boot=live components
+  KERNEL /casper/vmlinuz
+  APPEND initrd=/casper/initrd boot=casper quiet splash ---
 CFG
     ok "isolinux boot catalog staged."
 }
