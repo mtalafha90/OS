@@ -66,8 +66,9 @@ cp "$SRC"/scripts/first-boot.sh /usr/lib/llmos/ 2>/dev/null && chmod +x /usr/lib
 cp "$SRC"/systemd/*.service /etc/systemd/system/ 2>/dev/null || true
 systemctl daemon-reload
 
-# Enable services (ollama starts on boot, llmos on tty1, first-boot on first run)
+# Enable services
 systemctl enable ollama.service
+systemctl enable llmos-web.service
 systemctl enable llmos-firstboot.service
 
 # ── User shell configuration ──────────────────────────────────────────────────
@@ -77,24 +78,22 @@ mkdir -p "$HOME_LLMOS/.config/llmos"
 cp /etc/llmos/llmos.yaml "$HOME_LLMOS/.config/llmos/config.yaml"
 chown -R llmos:llmos "$HOME_LLMOS/.config"
 
-# Auto-start the web UI on login (for the llmos user)
+# Shell config for the llmos user
 cat > "$HOME_LLMOS/.bashrc" << 'BASHRC'
-# LLM-OS auto-start
 export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
 export LLMOS_MODEL="${LLMOS_MODEL:-llama3.2}"
 
-if [[ -z "${LLMOS_NO_AUTOSTART:-}" && $- == *i* ]]; then
+if [[ $- == *i* ]]; then
     echo ""
-    echo "  ╔═══════════════════════════════════╗"
-    echo "  ║          L L M - O S             ║"
-    echo "  ║  Natural Language Operating System ║"
-    echo "  ╚═══════════════════════════════════╝"
+    echo "  ╔══════════════════════════════════════╗"
+    echo "  ║           L L M - O S               ║"
+    echo "  ║   Natural Language Operating System  ║"
+    echo "  ╚══════════════════════════════════════╝"
     echo ""
-    echo "  Starting LLM-OS…"
-    echo "  Web UI: http://$(hostname -I | awk '{print $1}'):8080"
-    echo "  Terminal: type 'llmos'"
+    IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+    echo "  Web UI:  http://${IP:-localhost}:8080"
+    echo "  Password: llmos  (change with: passwd)"
     echo ""
-    exec llmos --web --port 8080 2>/dev/null || llmos
 fi
 BASHRC
 chown llmos:llmos "$HOME_LLMOS/.bashrc"

@@ -84,8 +84,20 @@ packer-init: ## Initialize Packer plugins
 
 # ── ISO ────────────────────────────────────────────────────────────────────────
 
-iso: ## Build the live ISO (requires live-build, must run as root)
-	sudo LLMOS_MODEL=$(MODEL) bash build/build-iso.sh
+iso: ## Build live ISO — kiosk mode (X11 + browser, boots to web UI)
+	sudo LLMOS_MODEL=$(MODEL) bash build/build-iso.sh dist kiosk
+
+iso-server: ## Build live ISO — server mode (text-only, smaller, ~800 MB)
+	sudo LLMOS_MODEL=$(MODEL) bash build/build-iso.sh dist server
+
+iso-run: ## Test kiosk ISO in QEMU (no KVM — safe for any host)
+	@ISO=$$(ls -t dist/llmos-*-kiosk.iso 2>/dev/null | head -1); \
+	[[ -n "$$ISO" ]] || { echo "No kiosk ISO found in dist/. Run: make iso"; exit 1; }; \
+	echo "Booting $$ISO …"; \
+	qemu-system-x86_64 -m 4G -smp 2 \
+	  -cdrom "$$ISO" \
+	  -net nic -net user,hostfwd=tcp::8080-:8080 \
+	  -display sdl
 
 iso-deps: ## Install ISO build dependencies
 	sudo apt-get install -y live-build squashfs-tools xorriso isolinux syslinux-efi
