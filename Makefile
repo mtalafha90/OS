@@ -7,7 +7,7 @@ DOCKER  ?= llmos:latest
 help:   ## Show this help
 	@awk 'BEGIN{FS=":.*##"} /^[a-zA-Z_-]+:.*##/{printf "  \033[36m%-16s\033[0m %s\n",$$1,$$2}' $(MAKEFILE_LIST)
 
-# ── Development ────────────────────────────────────────────────────────────────
+# ── Development ───────────────────────────────────────────────────────────────
 
 install: ## Install LLM-OS on this system (requires Python 3.11+)
 	pip3 install --break-system-packages -e ".[web]"
@@ -100,7 +100,9 @@ iso-run: ## Test kiosk ISO in QEMU (no KVM — safe for any host)
 	  -display sdl
 
 iso-deps: ## Install ISO build dependencies
-	sudo apt-get install -y live-build squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools
+	sudo apt-get install -y live-build squashfs-tools xorriso \
+		grub-pc-bin grub-efi-amd64-bin mtools \
+		isolinux syslinux-utils syslinux-common
 
 # ── Quality ────────────────────────────────────────────────────────────────────
 
