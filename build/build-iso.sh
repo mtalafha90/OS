@@ -65,8 +65,7 @@ init_build() {
         --bootappend-live "boot=live components quiet splash" \
         --iso-application "LLM-OS" \
         --iso-publisher "LLM-OS Project" \
-        --iso-volume "LLMOS_1_0" \
-        --linux-packages "linux-image-generic linux-headers-generic"
+        --iso-volume "LLMOS_1_0"
 }
 
 write_package_list() {
