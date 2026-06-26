@@ -323,11 +323,14 @@ set -euo pipefail
 echo "[hook] Installing LLM-OS…"
 # python3-pip is not guaranteed in the minimal chroot base
 apt-get install -y --no-install-recommends python3-pip python3-venv 2>/dev/null || true
-pip3 install --break-system-packages \
+# --ignore-installed: do NOT try to uninstall Debian-managed packages (e.g.
+# typing_extensions) — they have no pip RECORD file so the uninstall fails.
+# pip installs its own copies alongside; later imports resolve the pip version.
+pip3 install --break-system-packages --ignore-installed \
     "httpx>=0.27" "rich>=13.7" "prompt_toolkit>=3.0" "pyyaml>=6.0" "psutil>=5.9" \
     "fastapi>=0.111" "uvicorn[standard]>=0.29" "websockets>=12.0"
 if [[ -d /usr/lib/llmos/llmos-src ]]; then
-    pip3 install --break-system-packages /usr/lib/llmos/llmos-src/ || \
+    pip3 install --break-system-packages --ignore-installed /usr/lib/llmos/llmos-src/ || \
         echo "[hook] Warning: llmos package install failed, deps already present."
 fi
 echo "[hook] LLM-OS OK."
