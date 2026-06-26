@@ -268,9 +268,18 @@ write_chroot_hooks() {
     # Hook 0050: Install Ollama
     cat > "$hooks/0050-install-ollama.hook.chroot" << 'HOOK'
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 echo "[hook] Installing Ollama…"
-curl -fsSL https://ollama.com/install.sh | OLLAMA_MODELS=/usr/share/ollama/.ollama/models sh
+# Ollama's installer tries to start the systemd service and probe NVIDIA at the
+# end. Inside the live-build chroot systemd is not running, so those final steps
+# exit non-zero even though the binary is fully installed. Don't let that abort
+# the hook — verify success by checking for the binary instead.
+curl -fsSL https://ollama.com/install.sh | OLLAMA_MODELS=/usr/share/ollama/.ollama/models sh || \
+    echo "[hook] Ollama installer returned non-zero (expected: no systemd in chroot); verifying binary…"
+if ! command -v ollama >/dev/null 2>&1 && [ ! -x /usr/local/bin/ollama ] && [ ! -x /usr/bin/ollama ]; then
+    echo "[hook] ERROR: ollama binary not found after install." >&2
+    exit 1
+fi
 id ollama &>/dev/null || useradd -r -s /bin/false -d /usr/share/ollama ollama
 mkdir -p /usr/share/ollama/.ollama/models
 chown -R ollama:ollama /usr/share/ollama
