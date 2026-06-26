@@ -258,7 +258,11 @@ copy_llmos_source() {
 
 write_chroot_hooks() {
     log "Writing chroot hooks…"
-    local hooks="$BUILD_DIR/config/hooks/normal"
+    # This live-build (3.0~aXX, Ubuntu fork) reads local hooks from
+    # config/hooks/*.chroot and config/hooks/*.binary (FLAT) — not the newer
+    # Debian config/hooks/normal/ subdirectory. Putting them in normal/ means
+    # they silently never run (no Ollama, no user, no services).
+    local hooks="$BUILD_DIR/config/hooks"
     mkdir -p "$hooks"
 
     # Hook 0050: Install Ollama
@@ -343,68 +347,36 @@ echo "[hook] Services enabled."
 HOOK
     chmod +x "$hooks/0070-enable-services.hook.chroot"
 
-    # Hook 0080 (binary): write isolinux.cfg pointing at the REAL kernel/initrd.
-    # Runs just before lb_binary_iso, with the binary tree already populated, so
-    # we can read the actual filenames live-build placed in binary/live/ instead
-    # of guessing them (a wrong initrd path is what hangs the isolinux menu).
-    cat > "$hooks/0080-isolinux-cfg.hook.binary" << 'HOOK'
-#!/bin/bash
-set -euo pipefail
-ISO_DIR="binary/isolinux"
-mkdir -p "$ISO_DIR"
+    # NOTE: isolinux.cfg is NOT written by a binary hook anymore. Binary-hook
+    # execution order vs. config/includes.binary copying is version-dependent and
+    # unreliable. Instead, build_iso() splits the build, detects the real kernel
+    # version from the chroot, and writes the correct versioned isolinux.cfg into
+    # config/includes.binary/ before the binary stage runs (see build_iso).
+}
 
-echo "[hook] Root of binary tree:"
-ls -la binary/ 2>/dev/null | head -20
+write_isolinux_cfg_for_kernel() {
+    # Detect the real kernel version installed in the chroot and write an
+    # isolinux.cfg that points at the exact versioned filenames casper will
+    # place in /casper/ (there are NO plain vmlinuz/initrd symlinks there, which
+    # is why a static /casper/vmlinuz path hangs the boot).
+    local isodir="$BUILD_DIR/config/includes.binary/isolinux"
+    mkdir -p "$isodir"
 
-# Ubuntu live-build puts the kernel/initrd in binary/casper/ (Ubuntu's live
-# system uses casper, not live-boot). Debian uses binary/live/. Detect which.
-if [[ -d "binary/casper" ]]; then
-    LIVE_DIR="binary/casper"
-    LIVE_ISO_PATH="casper"
-    BOOT_PARAM="boot=casper quiet splash ---"
-    INITRD_GLOB="initrd*"          # casper names it: initrd or initrd.img
-elif [[ -d "binary/live" ]]; then
-    LIVE_DIR="binary/live"
-    LIVE_ISO_PATH="live"
-    BOOT_PARAM="boot=live components"
-    INITRD_GLOB="initrd.img*"
-else
-    echo "[hook] WARNING: neither binary/casper nor binary/live found — using casper defaults"
-    LIVE_DIR="binary/casper"
-    LIVE_ISO_PATH="casper"
-    BOOT_PARAM="boot=casper quiet splash ---"
-    INITRD_GLOB="initrd*"
-fi
+    local kver
+    kver=$(ls -1 "$BUILD_DIR"/chroot/boot/vmlinuz-* 2>/dev/null \
+           | sed 's@.*/vmlinuz-@@' | sort -V | tail -1)
 
-echo "[hook] Detected live dir: $LIVE_DIR"
-echo "[hook] Contents:"
-ls -la "$LIVE_DIR" 2>/dev/null || echo "(directory missing)"
+    if [[ -z "$kver" ]]; then
+        warn "Could not detect kernel version in chroot/boot — isolinux.cfg keeps generic fallback (boot may fail)."
+        return
+    fi
 
-# Prefer versioned filenames to avoid isolinux symlink-resolution issues.
-vmlinuz="$(cd "$LIVE_DIR" && ls -1 vmlinuz-* 2>/dev/null | head -1 || true)"
-initrd="$( cd "$LIVE_DIR" && ls -1 $INITRD_GLOB 2>/dev/null | head -1 || true)"
+    local vmlinuz="vmlinuz-$kver"
+    local initrd="initrd.img-$kver"
+    log "Detected kernel: $kver"
+    log "Writing isolinux.cfg -> KERNEL=/casper/$vmlinuz  initrd=/casper/$initrd"
 
-# Fall back to plain-name symlinks.
-[[ -z "$vmlinuz" ]] && vmlinuz="$(cd "$LIVE_DIR" && ls -1 vmlinuz 2>/dev/null | head -1 || true)"
-[[ -z "$initrd"  ]] && initrd="$( cd "$LIVE_DIR" && ls -1 initrd  2>/dev/null | head -1 || true)"
-
-# Resolve any remaining symlink to its real filename.
-if [[ -n "$vmlinuz" && -L "$LIVE_DIR/$vmlinuz" ]]; then
-    _real="$(readlink -f "$LIVE_DIR/$vmlinuz" 2>/dev/null || true)"
-    [[ -n "$_real" ]] && vmlinuz="$(basename "$_real")"
-fi
-if [[ -n "$initrd" && -L "$LIVE_DIR/$initrd" ]]; then
-    _real="$(readlink -f "$LIVE_DIR/$initrd" 2>/dev/null || true)"
-    [[ -n "$_real" ]] && initrd="$(basename "$_real")"
-fi
-
-vmlinuz="${vmlinuz:-vmlinuz}"
-initrd="${initrd:-initrd}"
-
-echo "[hook] isolinux.cfg -> KERNEL=/$LIVE_ISO_PATH/$vmlinuz  initrd=/$LIVE_ISO_PATH/$initrd"
-echo "[hook] boot params: $BOOT_PARAM"
-
-cat > "$ISO_DIR/isolinux.cfg" <<CFG
+    cat > "$isodir/isolinux.cfg" <<CFG
 UI menu.c32
 MENU TITLE LLM-OS
 PROMPT 0
@@ -412,26 +384,36 @@ TIMEOUT 50
 DEFAULT live
 LABEL live
   MENU LABEL Start LLM-OS
-  KERNEL /$LIVE_ISO_PATH/$vmlinuz
-  APPEND initrd=/$LIVE_ISO_PATH/$initrd $BOOT_PARAM
+  KERNEL /casper/$vmlinuz
+  APPEND initrd=/casper/$initrd boot=casper quiet splash ---
 CFG
-HOOK
-    chmod +x "$hooks/0080-isolinux-cfg.hook.binary"
 }
 
 build_iso() {
     log "Starting live-build (this takes 15–40 minutes)…"
     cd "$BUILD_DIR"
 
-    # Capture lb build's exit code separately from tee's (pipefail would mask it).
+    # Split the build so we can inject the correct isolinux.cfg between the
+    # chroot stage (which installs the kernel) and the binary stage (which
+    # copies config/includes.binary/ into the ISO tree and masters the ISO).
     local lb_exit=0
     set +o pipefail
-    lb build 2>&1 | tee "$REPO_DIR/build-iso.log"
+    { lb bootstrap && lb chroot; } 2>&1 | tee "$REPO_DIR/build-iso.log"
     lb_exit=${PIPESTATUS[0]}
     set -o pipefail
-
     if [[ $lb_exit -ne 0 ]]; then
-        err "lb build failed (exit $lb_exit). Check $REPO_DIR/build-iso.log"
+        err "lb chroot stage failed (exit $lb_exit). Check $REPO_DIR/build-iso.log"
+    fi
+
+    # Now the kernel is installed in chroot/boot — write the matching cfg.
+    write_isolinux_cfg_for_kernel
+
+    set +o pipefail
+    lb binary 2>&1 | tee -a "$REPO_DIR/build-iso.log"
+    lb_exit=${PIPESTATUS[0]}
+    set -o pipefail
+    if [[ $lb_exit -ne 0 ]]; then
+        err "lb binary stage failed (exit $lb_exit). Check $REPO_DIR/build-iso.log"
     fi
 
     mkdir -p "$OUTPUT_DIR"
