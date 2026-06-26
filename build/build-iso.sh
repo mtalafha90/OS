@@ -91,6 +91,16 @@ init_build() {
         echo 'LB_BINARY_IMAGES="iso"' >> "$binary_cfg"
     fi
     ok "Binary image type set to iso (skips isohybrid step)."
+
+    # The squashfs (Ollama + Firefox + Python deps) exceeds 4 GiB. ISO-9660
+    # cannot represent a single >4 GiB file unless mkisofs/xorriso is told
+    # -allow-limited-size, otherwise the binary stage aborts.
+    if grep -q "^LB_MKISOFS_OPTIONS=" "$binary_cfg" 2>/dev/null; then
+        sed -i 's/^LB_MKISOFS_OPTIONS=.*/LB_MKISOFS_OPTIONS="-allow-limited-size"/' "$binary_cfg"
+    else
+        echo 'LB_MKISOFS_OPTIONS="-allow-limited-size"' >> "$binary_cfg"
+    fi
+    ok "mkisofs option -allow-limited-size set (squashfs > 4 GiB)."
 }
 
 write_package_list() {
