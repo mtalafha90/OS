@@ -120,6 +120,7 @@ iputils-ping
 iputils-tracepath
 dnsutils
 iproute2
+genisoimage
 nmap
 htop
 iotop
@@ -424,6 +425,31 @@ LABEL live
 CFG
 }
 
+wrap_chroot_genisoimage() {
+    # Replace chroot/usr/bin/genisoimage with a wrapper that always passes
+    # -allow-limited-size, so a >4GiB filesystem.squashfs can be represented in
+    # ISO-9660. genisoimage is pulled in by the chroot package list, so it is
+    # already present here; if for some reason it isn't, install it now.
+    local gbin="$BUILD_DIR/chroot/usr/bin/genisoimage"
+    if [[ ! -e "$gbin" ]]; then
+        warn "genisoimage not found in chroot; attempting install…"
+        chroot "$BUILD_DIR/chroot" apt-get install -y --no-install-recommends genisoimage 2>/dev/null || true
+    fi
+    if [[ -e "$gbin" && ! -e "$gbin.real" ]]; then
+        mv "$gbin" "$gbin.real"
+        cat > "$gbin" <<'WRAP'
+#!/bin/sh
+exec /usr/bin/genisoimage.real -allow-limited-size "$@"
+WRAP
+        chmod +x "$gbin"
+        ok "Wrapped genisoimage in chroot to inject -allow-limited-size."
+    elif [[ -e "$gbin.real" ]]; then
+        ok "genisoimage already wrapped."
+    else
+        warn "Could not wrap genisoimage — ISO mastering may abort on >4GiB squashfs."
+    fi
+}
+
 build_iso() {
     log "Starting live-build (this takes 15–40 minutes)…"
     cd "$BUILD_DIR"
@@ -442,6 +468,12 @@ build_iso() {
 
     # Now the kernel is installed in chroot/boot — write the matching cfg.
     write_isolinux_cfg_for_kernel
+
+    # Our squashfs is >4GiB. live-build runs genisoimage inside the chroot to
+    # master the ISO and does NOT pass -allow-limited-size (the option var is
+    # not honoured in this fork), so it aborts on the oversized file. Wrap the
+    # genisoimage binary in the chroot so it always injects the flag.
+    wrap_chroot_genisoimage
 
     set +o pipefail
     lb binary 2>&1 | tee -a "$REPO_DIR/build-iso.log"
