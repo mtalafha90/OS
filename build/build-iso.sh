@@ -287,17 +287,30 @@ echo "[hook] Ollama OK."
 HOOK
     chmod +x "$hooks/0050-install-ollama.hook.chroot"
 
-    # Hook 0055: Install Firefox via Mozilla PPA (kiosk mode only)
+    # Hook 0055: Install Firefox (kiosk mode only)
+    # Use the Ubuntu archive deb directly — avoids needing add-apt-repository
+    # (software-properties-common) which is not installed in the minimal chroot.
     if [[ "$MODE" == "kiosk" ]]; then
         cat > "$hooks/0055-install-firefox.hook.chroot" << 'HOOK'
 #!/bin/bash
 set -euo pipefail
-echo "[hook] Installing Firefox via Mozilla PPA…"
-add-apt-repository -y ppa:mozillateam/ppa
+echo "[hook] Installing Firefox…"
+# Prefer the snap-free deb from the Mozilla PPA key + sources list.
+# add-apt-repository is not available; wire it up manually.
+apt-get install -y --no-install-recommends software-properties-common gnupg curl
+install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg \
+    | gpg --dearmor -o /etc/apt/keyrings/mozilla.gpg
+echo "deb [signed-by=/etc/apt/keyrings/mozilla.gpg] https://packages.mozilla.org/apt mozilla main" \
+    > /etc/apt/sources.list.d/mozilla.list
+echo 'Package: *
+Pin: origin packages.mozilla.org
+Pin-Priority: 1001' > /etc/apt/preferences.d/mozilla
+
 apt-get update -qq
 apt-get install -y --no-install-recommends firefox
-# Remove snap stub if it exists
-apt-get remove -y firefox-snap 2>/dev/null || true
+# Remove snap stub if it slipped in
+apt-get remove -y --purge firefox-snap 2>/dev/null || true
 echo "[hook] Firefox OK."
 HOOK
         chmod +x "$hooks/0055-install-firefox.hook.chroot"
@@ -308,12 +321,15 @@ HOOK
 #!/bin/bash
 set -euo pipefail
 echo "[hook] Installing LLM-OS…"
+# python3-pip is not guaranteed in the minimal chroot base
+apt-get install -y --no-install-recommends python3-pip python3-venv 2>/dev/null || true
 pip3 install --break-system-packages \
-    httpx>=0.27 rich>=13.7 prompt_toolkit>=3.0 pyyaml>=6.0 psutil>=5.9 \
-    fastapi>=0.111 uvicorn[standard]>=0.29 websockets>=12.0
-pip3 install --break-system-packages /usr/lib/llmos/llmos-src/ || \
-    pip3 install --break-system-packages \
-        httpx rich prompt_toolkit pyyaml psutil fastapi uvicorn websockets
+    "httpx>=0.27" "rich>=13.7" "prompt_toolkit>=3.0" "pyyaml>=6.0" "psutil>=5.9" \
+    "fastapi>=0.111" "uvicorn[standard]>=0.29" "websockets>=12.0"
+if [[ -d /usr/lib/llmos/llmos-src ]]; then
+    pip3 install --break-system-packages /usr/lib/llmos/llmos-src/ || \
+        echo "[hook] Warning: llmos package install failed, deps already present."
+fi
 echo "[hook] LLM-OS OK."
 HOOK
     chmod +x "$hooks/0060-install-llmos.hook.chroot"
@@ -328,28 +344,25 @@ if ! id llmos &>/dev/null; then
 fi
 echo "llmos:llmos" | chpasswd
 HOME_DIR="/home/llmos"
-
-# Apply skeleton files
 if [[ -d /etc/skel-llmos ]]; then
     cp -rn /etc/skel-llmos/. "$HOME_DIR/"
 fi
-
 chown -R llmos:llmos "$HOME_DIR"
 echo "[hook] User llmos ready."
 HOOK
     chmod +x "$hooks/0065-create-user.hook.chroot"
 
     # Hook 0070: Enable systemd services
+    # systemd is not running in the chroot but systemctl enable still works via
+    # symlinks. Use || true on every call since some units may not exist yet.
     cat > "$hooks/0070-enable-services.hook.chroot" << 'HOOK'
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 echo "[hook] Enabling services…"
 systemctl enable ollama.service          || true
 systemctl enable llmos-web.service       || true
 systemctl enable llmos-firstboot.service || true
-# Disable default getty@tty1 override (replaced by autologin)
 systemctl enable getty@tty1.service      || true
-# Suppress noisy MOTD entries
 chmod -x /etc/update-motd.d/10-help-text 2>/dev/null || true
 chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
 echo "[hook] Services enabled."
