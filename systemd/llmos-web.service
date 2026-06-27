@@ -1,7 +1,9 @@
 [Unit]
 Description=LLM-OS Web UI Server
 After=ollama.service network-online.target
-Requires=ollama.service
+# Wants (not Requires): the web UI must still start and bind port 8080 even if
+# Ollama is slow to come up or failed — the UI reports Ollama status itself.
+Wants=ollama.service
 
 [Service]
 Type=simple

@@ -97,22 +97,31 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
 
+        # IMPORTANT: never gate the web server on Ollama/model readiness. In
+        # kiosk/service mode the server must always bind so the UI loads; it
+        # reports Ollama/model status via /api/status and can pull models on
+        # demand. Blocking here would leave port 8080 dead on first boot (model
+        # not pulled yet) and the kiosk browser would show "Unable to connect".
         with OllamaClient(base_url=config.ollama_url, timeout=config.request_timeout) as ollama:
-            if not _wait_for_ollama(ollama, config.model, console):
-                return 1
+            if not ollama.is_available():
+                console.print(
+                    "[yellow]Ollama not reachable yet — starting web UI anyway; "
+                    "it will connect once Ollama is up.[/]"
+                )
+            else:
+                models = ollama.list_models()
+                if not any(m.startswith(config.model.split(":")[0]) for m in models):
+                    console.print(
+                        f"[yellow]Model '{config.model}' not present yet — the UI "
+                        "will load; pull it from the interface or wait for "
+                        "first-boot setup to finish.[/]"
+                    )
 
         url = f"http://localhost:{args.port}"
         console.print(
             f"[bold cyan]LLM-OS Web UI[/] starting at [underline cyan]{url}[/]\n"
             "[dim]Open this URL in your browser. Ctrl+C to stop.[/]"
         )
-        try:
-            import threading
-            import webbrowser
-
-            threading.Timer(1.2, lambda: webbrowser.open(url)).start()
-        except Exception:
-            pass
 
         run_web(host="0.0.0.0", port=args.port, config=config)
         return 0
