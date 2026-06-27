@@ -426,10 +426,17 @@ CFG
 }
 
 wrap_chroot_genisoimage() {
-    # Replace chroot/usr/bin/genisoimage with a wrapper that always passes
-    # -allow-limited-size, so a >4GiB filesystem.squashfs can be represented in
-    # ISO-9660. genisoimage is pulled in by the chroot package list, so it is
-    # already present here; if for some reason it isn't, install it now.
+    # Replace chroot/usr/bin/genisoimage with a wrapper that forces -iso-level 3
+    # so a >4GiB filesystem.squashfs is stored as a proper multi-extent file.
+    #
+    # NOTE: -allow-limited-size is the WRONG flag — it truncates files to 4GiB
+    # and proceeds, corrupting the squashfs (mount fails with "Invalid
+    # argument"). -iso-level 3 enables real large-file support. The wrapper also
+    # strips any -iso-level / -allow-limited-size live-build itself passes so our
+    # value always wins.
+    #
+    # genisoimage is pulled in by the chroot package list, so it is already
+    # present here; if for some reason it isn't, install it now.
     local gbin="$BUILD_DIR/chroot/usr/bin/genisoimage"
     if [[ ! -e "$gbin" ]]; then
         warn "genisoimage not found in chroot; attempting install…"
@@ -439,10 +446,25 @@ wrap_chroot_genisoimage() {
         mv "$gbin" "$gbin.real"
         cat > "$gbin" <<'WRAP'
 #!/bin/sh
-exec /usr/bin/genisoimage.real -allow-limited-size "$@"
+# Force -iso-level 3 for >4GiB multi-extent files. Filter out any -iso-level
+# (and its value) and -allow-limited-size that the caller passed, then prepend
+# our own. "$@" round-trips through the positional list to preserve quoting.
+n=$#
+i=0
+skip=0
+while [ $i -lt $n ]; do
+    cur=$1; shift; i=$((i+1))
+    if [ $skip -eq 1 ]; then skip=0; continue; fi
+    case "$cur" in
+        -iso-level)          skip=1; continue ;;
+        -allow-limited-size) continue ;;
+    esac
+    set -- "$@" "$cur"
+done
+exec /usr/bin/genisoimage.real -iso-level 3 "$@"
 WRAP
         chmod +x "$gbin"
-        ok "Wrapped genisoimage in chroot to inject -allow-limited-size."
+        ok "Wrapped genisoimage in chroot to force -iso-level 3 (multi-extent)."
     elif [[ -e "$gbin.real" ]]; then
         ok "genisoimage already wrapped."
     else
