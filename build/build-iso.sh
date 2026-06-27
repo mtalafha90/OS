@@ -180,6 +180,18 @@ copy_overlay() {
     # Default config
     cp "$REPO_DIR/config/llmos.yaml" "$overlay/etc/llmos/llmos.yaml"
 
+    # casper.conf — tell Ubuntu's live-boot which user to configure. Without
+    # this casper defaults to a user named "ubuntu" (which we don't create) and
+    # its boot scripts spew "user 'ubuntu' does not exist" / "invalid user
+    # 'ubuntu.ubuntu'" errors while setting up autologin/sudo. We use llmos.
+    cat > "$overlay/etc/casper.conf" << 'CASPER'
+export USERNAME="llmos"
+export USERFULLNAME="LLM-OS User"
+export HOST="llmos"
+export BUILD_SYSTEM="Ubuntu"
+export FLAVOUR="Ubuntu"
+CASPER
+
     # Scripts
     cp "$REPO_DIR/scripts/first-boot.sh" "$overlay/usr/lib/llmos/first-boot.sh"
     chmod +x "$overlay/usr/lib/llmos/first-boot.sh"
