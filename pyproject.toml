@@ -94,6 +94,12 @@ Repository = "https://github.com/mtalafha90/OS"
 where = ["."]
 include = ["llmos*"]
 
+[tool.setuptools.package-data]
+# Ship the web UI assets inside the wheel. Without this the static/ dir is
+# absent at runtime and StaticFiles(directory=...) raises at import, crashing
+# `llmos --web` before it can bind the port.
+"llmos.webui" = ["static/*", "static/**/*"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

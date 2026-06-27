@@ -355,9 +355,14 @@ apt-get install -y --no-install-recommends python3-pip python3-venv 2>/dev/null 
 # pip installs its own copies alongside; later imports resolve the pip version.
 pip3 install --break-system-packages --ignore-installed \
     "httpx>=0.27" "rich>=13.7" "prompt_toolkit>=3.0" "pyyaml>=6.0" "psutil>=5.9" \
-    "fastapi>=0.111" "uvicorn[standard]>=0.29" "websockets>=12.0"
+    "fastapi>=0.111" "uvicorn[standard]>=0.29" "websockets>=12.0" \
+    "python-multipart>=0.0.9"
 if [[ -d /usr/lib/llmos/llmos-src ]]; then
-    pip3 install --break-system-packages --ignore-installed /usr/lib/llmos/llmos-src/ || \
+    # Install with the [web] extra so the full web dependency set (incl.
+    # python-multipart, required by the file-upload routes at import time) is
+    # always present and can't drift from the explicit list above.
+    pip3 install --break-system-packages --ignore-installed "/usr/lib/llmos/llmos-src/[web]" || \
+        pip3 install --break-system-packages --ignore-installed /usr/lib/llmos/llmos-src/ || \
         echo "[hook] Warning: llmos package install failed, deps already present."
 fi
 echo "[hook] LLM-OS OK."

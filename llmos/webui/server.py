@@ -20,7 +20,11 @@ STATIC_DIR = Path(__file__).parent / "static"
 PLOTS_DIR = Path.home() / "plots"
 
 app = FastAPI(title="LLM-OS Web UI", docs_url=None, redoc_url=None)
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+# Guard the mount: StaticFiles(directory=...) raises at import if the dir is
+# missing, which would crash the whole server before it can bind. The package
+# now ships static/ (see pyproject package-data), but stay defensive.
+if STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 _config: Config = Config()
 _conversation_history: list[dict] = []
