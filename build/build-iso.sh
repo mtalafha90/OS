@@ -120,6 +120,9 @@ iputils-ping
 iputils-tracepath
 dnsutils
 iproute2
+network-manager
+wireless-tools
+wpasupplicant
 genisoimage
 xorriso
 nmap
@@ -378,6 +381,11 @@ systemctl enable ollama.service          || true
 systemctl enable llmos-web.service       || true
 systemctl enable llmos-firstboot.service || true
 systemctl enable getty@tty1.service      || true
+# Networking: NetworkManager auto-connects wired ethernet via DHCP (covers the
+# VM NAT NIC and wired laptops) and manages WiFi. Without it the NIC stays down,
+# so there is no internet and the model pull / wait_for_network fails.
+systemctl enable NetworkManager.service  || true
+systemctl enable systemd-resolved.service || true
 chmod -x /etc/update-motd.d/10-help-text 2>/dev/null || true
 chmod -x /etc/update-motd.d/50-motd-news 2>/dev/null || true
 echo "[hook] Services enabled."
