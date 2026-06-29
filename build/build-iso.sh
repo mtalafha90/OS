@@ -305,8 +305,20 @@ echo "[hook] Installing Ollama…"
 # end. Inside the live-build chroot systemd is not running, so those final steps
 # exit non-zero even though the binary is fully installed. Don't let that abort
 # the hook — verify success by checking for the binary instead.
-curl -fsSL https://ollama.com/install.sh | OLLAMA_MODELS=/usr/share/ollama/.ollama/models sh || \
+#
+# Also: the installer auto-installs the FULL NVIDIA CUDA driver stack (~600 MB)
+# whenever it detects an NVIDIA GPU via lspci/lshw — and in the build chroot it
+# sees the BUILD HOST's GPU. That bloats the image and bakes in drivers for the
+# wrong kernel. Shadow lspci/lshw with empty stubs during the install so GPU
+# detection finds nothing; real-hardware GPU drivers are handled at first boot.
+mkdir -p /tmp/nogpu
+printf '#!/bin/sh\nexit 0\n' > /tmp/nogpu/lspci
+printf '#!/bin/sh\nexit 0\n' > /tmp/nogpu/lshw
+chmod +x /tmp/nogpu/lspci /tmp/nogpu/lshw
+curl -fsSL https://ollama.com/install.sh \
+    | PATH="/tmp/nogpu:$PATH" OLLAMA_MODELS=/usr/share/ollama/.ollama/models sh || \
     echo "[hook] Ollama installer returned non-zero (expected: no systemd in chroot); verifying binary…"
+rm -rf /tmp/nogpu
 if ! command -v ollama >/dev/null 2>&1 && [ ! -x /usr/local/bin/ollama ] && [ ! -x /usr/bin/ollama ]; then
     echo "[hook] ERROR: ollama binary not found after install." >&2
     exit 1
@@ -314,6 +326,31 @@ fi
 id ollama &>/dev/null || useradd -r -s /bin/false -d /usr/share/ollama ollama
 mkdir -p /usr/share/ollama/.ollama/models
 chown -R ollama:ollama /usr/share/ollama
+
+# Overwrite the installer's service with an explicit one. The installer's unit
+# sets NO OLLAMA_MODELS, so the runtime model path is left to Ollama's default
+# and may NOT match where we bundle the model — causing /api/chat 404 even with
+# the model on disk. Pin HOME + OLLAMA_MODELS to the exact bundle path so the
+# build-time pull and the runtime server always agree.
+cat > /etc/systemd/system/ollama.service <<'SVC'
+[Unit]
+Description=Ollama LLM Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/ollama serve
+User=ollama
+Group=ollama
+Restart=on-failure
+RestartSec=3
+Environment="HOME=/usr/share/ollama"
+Environment="OLLAMA_MODELS=/usr/share/ollama/.ollama/models"
+
+[Install]
+WantedBy=multi-user.target
+SVC
 echo "[hook] Ollama OK."
 HOOK
     chmod +x "$hooks/0050-install-ollama.hook.chroot"
