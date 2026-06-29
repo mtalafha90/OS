@@ -180,6 +180,10 @@ copy_overlay() {
     # Default config
     cp "$REPO_DIR/config/llmos.yaml" "$overlay/etc/llmos/llmos.yaml"
 
+    # Default model name — read by the build-time model-bundling hook and by
+    # first-boot so both agree on which model the image ships with.
+    echo "$DEFAULT_MODEL" > "$overlay/etc/llmos/default-model"
+
     # casper.conf — tell Ubuntu's live-boot which user to configure. Without
     # this casper defaults to a user named "ubuntu" (which we don't create) and
     # its boot scripts spew "user 'ubuntu' does not exist" / "invalid user
@@ -313,6 +317,43 @@ chown -R ollama:ollama /usr/share/ollama
 echo "[hook] Ollama OK."
 HOOK
     chmod +x "$hooks/0050-install-ollama.hook.chroot"
+
+    # Hook 0052: Bundle the default model INTO the image so the system works
+    # instantly and fully offline (no first-boot download). Starts ollama serve
+    # in the chroot, pulls the model into /usr/share/ollama/.ollama/models, then
+    # stops it. Non-fatal: if the pull fails, first-boot still retries online.
+    cat > "$hooks/0052-pull-model.hook.chroot" << 'HOOK'
+#!/bin/bash
+set -uo pipefail
+MODEL="$(cat /etc/llmos/default-model 2>/dev/null || echo llama3.2)"
+echo "[hook] Bundling model '$MODEL' into the image…"
+export OLLAMA_MODELS=/usr/share/ollama/.ollama/models
+export HOME=/usr/share/ollama
+mkdir -p "$OLLAMA_MODELS"
+
+ollama serve >/tmp/ollama-build.log 2>&1 &
+OPID=$!
+ready=0
+for i in $(seq 1 30); do
+    if curl -sf http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then ready=1; break; fi
+    sleep 1
+done
+if [ "$ready" -ne 1 ]; then
+    echo "[hook] WARNING: ollama serve did not come up in the chroot; skipping bundle (first-boot will pull)."
+    kill "$OPID" 2>/dev/null || true
+else
+    if ollama pull "$MODEL"; then
+        echo "[hook] Model '$MODEL' bundled into image."
+    else
+        echo "[hook] WARNING: model pull failed; first-boot will retry online."
+    fi
+    kill "$OPID" 2>/dev/null || true
+    wait "$OPID" 2>/dev/null || true
+fi
+chown -R ollama:ollama /usr/share/ollama 2>/dev/null || true
+echo "[hook] Model bundling step done."
+HOOK
+    chmod +x "$hooks/0052-pull-model.hook.chroot"
 
     # Hook 0055: Install Firefox (kiosk mode only)
     # Use the Ubuntu archive deb directly — avoids needing add-apt-repository
